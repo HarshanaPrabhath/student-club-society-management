@@ -67,19 +67,20 @@ public class ClubService {
 
         User creator = userRepository.findById(principal.getId())
                 .orElseThrow(() -> ApiException.notFound("User not found"));
+        if (creator.getRole() != Role.SUPER_ADMIN) {
+            throw ApiException.forbidden("Only a Super Admin can create a club");
+        }
         emailVerificationPolicy.requireVerified(creator);
 
         if (clubRepository.existsByNameIgnoreCase(request.name().trim())) {
             throw ApiException.conflict("A club with this name already exists");
         }
 
-        boolean isSuperAdmin = creator.getRole() == Role.SUPER_ADMIN;
-
         Club club = Club.builder()
                 .name(request.name().trim())
                 .description(request.description())
                 .category(request.category().trim())
-                .status(isSuperAdmin ? ClubStatus.APPROVED : ClubStatus.PENDING)
+                .status(ClubStatus.APPROVED)
                 .joinPolicy(request.joinPolicy() != null ? request.joinPolicy() : JoinPolicy.OPEN)
                 .membershipFee(fee)
                 .certificateThreshold(threshold)
@@ -88,7 +89,8 @@ public class ClubService {
                 .build();
         club = clubRepository.save(club);
 
-        // Whoever creates the club starts out as its President (Club Admin), once approved.
+        // The creating Super Admin starts out as the club's President (Club Admin), and hands the
+        // role to a student later through the positions endpoint.
         Membership presidentMembership = Membership.builder()
                 .user(creator)
                 .club(club)
@@ -96,10 +98,6 @@ public class ClubService {
                 .status(MembershipStatus.APPROVED)
                 .build();
         membershipRepository.save(presidentMembership);
-
-        if (!isSuperAdmin) {
-            notifySuperAdmins("New club proposal awaiting review: \"" + club.getName() + "\".");
-        }
 
         return ClubResponse.from(club);
     }
