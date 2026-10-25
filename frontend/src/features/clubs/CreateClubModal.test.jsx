@@ -11,8 +11,14 @@ vi.mock('../../api/axios', () => ({
   default: { post: vi.fn() },
 }))
 
-function renderWithProviders(ui) {
-  const store = configureStore({ reducer: { clubs: clubsReducer } })
+function renderWithProviders(ui, { initialState } = {}) {
+  const store = configureStore({
+    reducer: {
+      clubs: clubsReducer,
+      auth: (state = { user: { role: 'SUPER_ADMIN' } }) => state,
+    },
+    preloadedState: initialState,
+  })
   return render(
     <Provider store={store}>
       <ToastProvider>{ui}</ToastProvider>
@@ -64,7 +70,7 @@ describe('CreateClubModal', () => {
   it('sends the membership fee and certificate threshold with the club', async () => {
     const axios = (await import('../../api/axios')).default
     axios.post.mockResolvedValueOnce({
-      data: { id: 'c2', name: 'Robotics', category: 'Tech', status: 'PENDING' },
+      data: { id: 'c2', name: 'Robotics', category: 'Tech', status: 'APPROVED' },
     })
     renderWithProviders(<CreateClubModal onClose={vi.fn()} onCreated={vi.fn()} />)
     const user = userEvent.setup()
@@ -95,5 +101,14 @@ describe('CreateClubModal', () => {
 
     expect(screen.getByLabelText(/membership fee/i)).toHaveValue(120)
     expect(screen.getByLabelText(/events for certificate/i)).toHaveValue(4)
+  })
+
+  it('does not render when a normal student attempts to open create mode', () => {
+    renderWithProviders(<CreateClubModal onClose={vi.fn()} />, {
+      initialState: { auth: { user: { role: 'STUDENT' } } },
+    })
+
+    expect(screen.queryByRole('heading', { name: /create a club/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

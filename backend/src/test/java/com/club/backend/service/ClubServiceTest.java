@@ -97,15 +97,13 @@ class ClubServiceTest {
     }
 
     @Test
-    void createClub_byStudent_isPendingAndCreatorBecomesPresident() {
+    void createClub_byStudent_isForbidden() {
         CreateClubRequest request = new CreateClubRequest("Chess Club", "Games", "desc", null, null);
         when(userRepository.findById(student.getId())).thenReturn(Optional.of(student));
-        when(clubRepository.save(any(Club.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(membershipRepository.save(any(Membership.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ClubResponse response = clubService.createClub(request, studentPrincipal);
-
-        assertThat(response.status()).isEqualTo(ClubStatus.PENDING);
+        assertThatThrownBy(() -> clubService.createClub(request, studentPrincipal))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Only a Super Admin can create a club");
     }
 
     @Test
@@ -208,11 +206,11 @@ class ClubServiceTest {
 
     @Test
     void createClub_duplicateName_conflicts() {
-        when(userRepository.findById(student.getId())).thenReturn(Optional.of(student));
+        when(userRepository.findById(superAdmin.getId())).thenReturn(Optional.of(superAdmin));
         when(clubRepository.existsByNameIgnoreCase("Chess Club")).thenReturn(true);
 
         assertThatThrownBy(() -> clubService.createClub(
-                new CreateClubRequest("Chess Club", "Games", "desc", null, null), studentPrincipal))
+                new CreateClubRequest("Chess Club", "Games", "desc", null, null), superAdminPrincipal))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("already exists");
     }
@@ -230,29 +228,26 @@ class ClubServiceTest {
     }
 
     @Test
-    void createClub_storesFeeAndThreshold_andNotifiesSuperAdmins() {
-        when(userRepository.findById(student.getId())).thenReturn(Optional.of(student));
-        when(userRepository.findByRole(Role.SUPER_ADMIN)).thenReturn(List.of(superAdmin));
+    void createClub_storesFeeAndThreshold() {
+        when(userRepository.findById(superAdmin.getId())).thenReturn(Optional.of(superAdmin));
         when(clubRepository.save(any(Club.class))).thenAnswer(inv -> inv.getArgument(0));
         when(membershipRepository.save(any(Membership.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ClubResponse response = clubService.createClub(new CreateClubRequest(
-                "Chess Club", "desc", "Games", null, null, new java.math.BigDecimal("150"), 5), studentPrincipal);
+                "Chess Club", "desc", "Games", null, null, new java.math.BigDecimal("150"), 5), superAdminPrincipal);
 
         assertThat(response.membershipFee()).isEqualByComparingTo("150");
         assertThat(response.certificateThreshold()).isEqualTo(5);
-        org.mockito.Mockito.verify(notificationService).notifyUsers(
-                org.mockito.ArgumentMatchers.eq(List.of(superAdmin.getId())), any(String.class));
     }
 
     @Test
     void createClub_unverifiedEmail_isBlocked() {
-        when(userRepository.findById(student.getId())).thenReturn(Optional.of(student));
+        when(userRepository.findById(superAdmin.getId())).thenReturn(Optional.of(superAdmin));
         org.mockito.Mockito.doThrow(ApiException.forbidden("Please verify your email address first"))
-                .when(emailVerificationPolicy).requireVerified(student);
+                .when(emailVerificationPolicy).requireVerified(superAdmin);
 
         assertThatThrownBy(() -> clubService.createClub(
-                new CreateClubRequest("Chess Club", "Games", "desc", null, null), studentPrincipal))
+                new CreateClubRequest("Chess Club", "Games", "desc", null, null), superAdminPrincipal))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("verify your email");
     }

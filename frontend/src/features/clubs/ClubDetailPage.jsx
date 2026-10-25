@@ -1,11 +1,23 @@
-import { Archive, CalendarDays, Download, LogOut, Pencil, Plus, UserMinus, UserPlus, Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import {
+  Archive,
+  Calendar,
+  CalendarDays,
+  Check,
+  Download,
+  ExternalLink,
+  MapPin,
+  Pencil,
+  Plus,
+  Trash2,
+  UserMinus,
+  UserPlus,
+  Users,
+} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axios'
-import Breadcrumbs from '../../components/Breadcrumbs'
 import { useToast } from '../../components/ToastProvider'
-import BarList from '../../components/charts/BarList'
 import ChartCard from '../../components/charts/ChartCard'
 import ColumnChart from '../../components/charts/ColumnChart'
 import { monthlyCounts } from '../../components/charts/chartUtils'
@@ -25,6 +37,14 @@ const RECORDS_POSITIONS = ['PRESIDENT', 'SECRETARY']
 const ALL_POSITIONS = ['PRESIDENT', 'VP', 'SECRETARY', 'TREASURER', 'MEMBER']
 const POSITION_TONE = { PRESIDENT: 'brand', VP: 'info', SECRETARY: 'warning', TREASURER: 'success', MEMBER: 'neutral' }
 
+const POSITION_LABEL = {
+  PRESIDENT: 'President',
+  VP: 'Vice President',
+  SECRETARY: 'Secretary',
+  TREASURER: 'Treasurer',
+  MEMBER: 'Member',
+}
+
 const inputClass =
   'rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none transition-fast focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark dark:focus:ring-brand-500/20'
 
@@ -41,32 +61,25 @@ async function downloadBlob(path, filename) {
 function MemberAvatar({ name, className = 'h-9 w-9' }) {
   return (
     <span
-      className={`${className} flex shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300`}
+      className={`${className} flex shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-[#6366f1] dark:bg-indigo-500/15 dark:text-indigo-300 ring-2 ring-white dark:ring-[#181b24]`}
     >
-      {name?.[0]?.toUpperCase()}
+      {name?.[0]?.toUpperCase() || 'U'}
     </span>
   )
 }
 
 function SectionCard({ title, action, children, className = '' }) {
   return (
-    <Card interactive={false} className={className}>
+    <div
+      className={`rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800/80 dark:bg-[#181b24] ${className}`}
+    >
       {(title || action) && (
-        <div className="mb-3 flex items-center justify-between gap-2">
-          {title && <h2 className="text-sm font-semibold text-ink dark:text-ink-dark">{title}</h2>}
+        <div className="mb-4 flex items-center justify-between gap-2">
+          {title && <h2 className="text-base font-bold text-slate-900 dark:text-white">{title}</h2>}
           {action}
         </div>
       )}
       {children}
-    </Card>
-  )
-}
-
-function StatTile({ label, value, className = '' }) {
-  return (
-    <div className={`rounded-lg bg-surface-muted p-3 dark:bg-surface-dark ${className}`}>
-      <p className="text-lg font-bold text-ink dark:text-ink-dark">{value}</p>
-      <p className="text-xs text-ink-muted dark:text-ink-dark-muted">{label}</p>
     </div>
   )
 }
@@ -78,7 +91,7 @@ function Donut({ value, total }) {
   return (
     <div className="relative h-36 w-36">
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90" aria-hidden="true">
-        <circle cx="50" cy="50" r={r} fill="none" strokeWidth="12" className="stroke-surface-muted dark:stroke-surface-dark" />
+        <circle cx="50" cy="50" r={r} fill="none" strokeWidth="12" className="stroke-slate-100 dark:stroke-slate-800" />
         <circle
           cx="50"
           cy="50"
@@ -87,15 +100,44 @@ function Donut({ value, total }) {
           strokeWidth="12"
           strokeLinecap="round"
           strokeDasharray={`${pct * c} ${c}`}
-          className="stroke-brand-500"
+          className="stroke-[#6366f1]"
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xl font-bold text-ink dark:text-ink-dark">{Math.round(pct * 100)}%</span>
-        <span className="text-[11px] text-ink-muted dark:text-ink-dark-muted">of income spent</span>
+        <span className="text-xl font-bold text-slate-900 dark:text-white">{Math.round(pct * 100)}%</span>
+        <span className="text-[11px] text-slate-400 dark:text-slate-500">of income spent</span>
       </div>
     </div>
   )
+}
+
+function getCategoryGradient(category = '') {
+  const cat = (category || '').toLowerCase()
+  if (cat.includes('tech') || cat.includes('code') || cat.includes('ai') || cat.includes('cyber')) {
+    return 'from-blue-600 via-indigo-600 to-cyan-500'
+  }
+  if (cat.includes('art') || cat.includes('cultur') || cat.includes('photo') || cat.includes('design')) {
+    return 'from-purple-600 via-fuchsia-600 to-pink-500'
+  }
+  if (cat.includes('sport') || cat.includes('hik') || cat.includes('adventur')) {
+    return 'from-emerald-600 via-teal-600 to-lime-500'
+  }
+  if (cat.includes('academ') || cat.includes('debat') || cat.includes('sci')) {
+    return 'from-amber-600 via-orange-600 to-yellow-500'
+  }
+  return 'from-[#6366f1] via-[#7c5cfc] to-[#4f46e5]'
+}
+
+function formatEventTime(startIso, endIso) {
+  if (!startIso) return 'TBA'
+  try {
+    const start = new Date(startIso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    if (!endIso) return start
+    const end = new Date(endIso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    return `${start} - ${end}`
+  } catch {
+    return 'TBA'
+  }
 }
 
 function ClubDetailPage() {
@@ -117,16 +159,17 @@ function ClubDetailPage() {
   const [showCreateEvent, setShowCreateEvent] = useState(false)
   const [showLogExpense, setShowLogExpense] = useState(false)
   const [showEditClub, setShowEditClub] = useState(false)
-  const [tab, setTab] = useState('overview')
+  const [tab, setTab] = useState('about')
   const [announcementDraft, setAnnouncementDraft] = useState('')
   const [postingAnnouncement, setPostingAnnouncement] = useState(false)
+  const [showAdminMenu, setShowAdminMenu] = useState(false)
 
   useEffect(() => {
-    api.get(`/clubs/${clubId}`).then((res) => setClub(res.data))
-    api.get(`/clubs/${clubId}/members`).then((res) => setMembers(res.data))
-    api.get(`/clubs/${clubId}/announcements`).then((res) => setAnnouncements(res.data))
+    api.get(`/clubs/${clubId}`).then((res) => setClub(res.data)).catch(() => {})
+    api.get(`/clubs/${clubId}/members`).then((res) => setMembers(res.data)).catch(() => {})
+    api.get(`/clubs/${clubId}/announcements`).then((res) => setAnnouncements(res.data)).catch(() => {})
     api.get(`/clubs/${clubId}/members/pending`).then((res) => setPendingRequests(res.data)).catch(() => {})
-    api.get('/events', { params: { clubId } }).then((res) => setEvents(res.data))
+    api.get('/events', { params: { clubId } }).then((res) => setEvents(res.data)).catch(() => {})
     api.get(`/analytics/clubs/${clubId}`).then((res) => setStats(res.data)).catch(() => {})
   }, [clubId])
 
@@ -138,7 +181,9 @@ function ClubDetailPage() {
   const canDeleteClub = user?.role === 'SUPER_ADMIN'
   const canJoinClub = user?.role === 'STUDENT'
   const effectiveMembershipStatus =
-    joinStatus === 'LEFT' ? null : joinStatus || (myMembership ? 'APPROVED' : pendingRequests.some((p) => p.userId === user?.id) ? 'PENDING' : null)
+    joinStatus === 'LEFT'
+      ? null
+      : joinStatus || (myMembership ? 'APPROVED' : pendingRequests.some((p) => p.userId === user?.id) ? 'PENDING' : null)
 
   useEffect(() => {
     if (!canManageLedger) return
@@ -175,14 +220,12 @@ function ClubDetailPage() {
 
   async function handleJoin() {
     if (!canJoinClub) return
-    const fee = Number(club.membershipFee) || 0
+    const fee = Number(club?.membershipFee) || 0
     if (fee > 0) {
-      // The fee is paid up front (it is refunded if the request is rejected or withdrawn).
-      if (!window.confirm(`This club charges a membership fee of ${fee}. Pay it and join?`)) return
+      if (!window.confirm(`This club charges a membership fee of $${fee}. Pay it and join?`)) return
       try {
         await api.post('/payments', { type: 'MEMBERSHIP', referenceId: clubId, amount: fee })
       } catch (e) {
-        // 409 means the fee was already paid earlier (e.g. a previous join attempt failed) — carry on and join.
         if (e.response?.status !== 409) {
           showToast(e.response?.data?.message || 'Payment failed', 'error')
           return
@@ -192,7 +235,9 @@ function ClubDetailPage() {
     const result = await dispatch(joinClub(clubId))
     if (joinClub.fulfilled.match(result)) {
       setJoinStatus(result.payload.status)
-      showToast(result.payload.status === 'APPROVED' ? 'Joined club' : 'Join request sent — awaiting approval')
+      showToast(result.payload.status === 'APPROVED' ? 'Joined club 🎉' : 'Join request sent — awaiting approval')
+      const res = await api.get(`/clubs/${clubId}/members`)
+      setMembers(res.data)
     } else {
       showToast(result.payload, 'error')
     }
@@ -212,7 +257,7 @@ function ClubDetailPage() {
   }
 
   async function handleArchiveClub() {
-    if (!window.confirm('Archive this club? It is hidden from browsing, upcoming events are cancelled (paid fees refunded) and members are notified.')) return
+    if (!window.confirm('Archive this club? It is hidden from browsing, upcoming events are cancelled and members are notified.')) return
     try {
       const { data } = await api.post(`/clubs/${clubId}/archive`)
       setClub(data)
@@ -223,7 +268,7 @@ function ClubDetailPage() {
   }
 
   async function handleDeleteClub() {
-    if (!window.confirm('Delete this club permanently? This action cannot be undone and will remove it from the platform.')) return
+    if (!window.confirm('Delete this club permanently? This action cannot be undone.')) return
     try {
       await api.delete(`/clubs/${clubId}`)
       showToast('Club deleted')
@@ -337,118 +382,262 @@ function ClubDetailPage() {
     }
   }
 
-  if (!club) {
-    return (
-      <div className="mx-auto max-w-6xl p-4 md:p-8">
-        <div className="h-6 w-40 animate-pulse rounded bg-surface-muted dark:bg-surface-dark-muted" />
-        <div className="mt-4 h-48 animate-pulse rounded-2xl bg-surface-muted dark:bg-surface-dark-muted" />
-        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-muted dark:bg-surface-dark-muted" />
-          ))}
-        </div>
-      </div>
-    )
+  function handleShare() {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(window.location.href)
+      showToast('Club link copied to clipboard!')
+    } else {
+      showToast('Link copied!')
+    }
   }
 
-  const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'events', label: `Events (${events.length})` },
-    { id: 'members', label: `Members (${members.length})` },
-    ...(canManageLedger && ledger ? [{ id: 'budget', label: 'Budget' }] : []),
-  ]
-  const activeTab = tabs.some((t) => t.id === tab) ? tab : 'overview'
+  // Derive club officers
+  const officers = useMemo(() => {
+    return members
+      .filter((m) => OFFICER_POSITIONS.includes(m.position))
+      .sort((a, b) => OFFICER_POSITIONS.indexOf(a.position) - OFFICER_POSITIONS.indexOf(b.position))
+  }, [members])
+
+  // Derive upcoming events
   const startOfToday = new Date(new Date().toDateString())
   const futureEvents = events
-    .filter((e) => new Date(e.eventDate) >= startOfToday)
+    .filter((e) => new Date(e.eventDate) >= startOfToday && !e.cancelled)
     .sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate))
-  const showingRecent = futureEvents.length === 0
-  const upcomingEvents = showingRecent
-    ? [...events].sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate)).slice(0, 4)
-    : futureEvents.slice(0, 4)
+
   const totalIncome = Number(ledger?.totalIncome) || 0
   const totalExpenses = Number(ledger?.totalExpenses) || 0
-  const engagement = (stats?.events || []).slice(-8)
-  const membersByRole = ALL_POSITIONS.map((p) => ({ label: p, value: members.filter((m) => m.position === p).length })).filter(
-    (r) => r.value > 0,
-  )
   const spendingByMonth = monthlyCounts(ledger?.expenses || [], (e) => `${e.expenseDate}T12:00:00`, {
     before: 5,
     getValue: (e) => Number(e.amount) || 0,
   })
 
-  return (
-    <div className="mx-auto max-w-6xl p-4 md:p-8">
-      <Breadcrumbs items={[{ label: 'Clubs', to: '/clubs' }, { label: club.name }]} />
+  // Dynamic real tags from club attributes
+  const realClubTags = useMemo(() => {
+    if (!club) return []
+    const tags = [club.category]
+    if (club.joinPolicy === 'APPROVAL_REQUIRED') tags.push('Application Required')
+    else tags.push('Open Membership')
 
-      <div className="relative h-44 overflow-hidden rounded-2xl bg-brand-gradient shadow-card md:h-56">
-        {club.logoB64 && (
-          <img src={club.logoB64} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        )}
-        <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-5 md:p-6">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">{club.name}</h1>
-            <span className="mt-1.5 inline-block rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
-              {club.category}
-            </span>
+    if (Number(club.membershipFee) > 0) tags.push(`Paid ($${club.membershipFee})`)
+    else tags.push('Free Membership')
+
+    if (club.certificateThreshold) tags.push(`Certificate (${club.certificateThreshold} events)`)
+    if (club.status === 'APPROVED') tags.push('Verified Society')
+    return tags
+  }, [club])
+
+  // Dynamic next meeting / event schedule from real events
+  const nextEvent = futureEvents[0]
+
+  const canViewMembers = isOfficer || user?.role === 'SUPER_ADMIN' || user?.role === 'FACULTY_ADVISOR'
+  const activeTab = (tab === 'budget' && !canManageLedger) || (tab === 'members' && !canViewMembers) ? 'about' : tab
+
+  const tabs = [
+    { id: 'about', label: 'About' },
+    { id: 'events', label: `Events (${events.length})` },
+    ...(canViewMembers ? [{ id: 'members', label: `Members (${members.length})` }] : []),
+    { id: 'gallery', label: 'Gallery' },
+    ...(canManageLedger && ledger ? [{ id: 'budget', label: 'Budget' }] : []),
+  ]
+
+  if (!club) {
+    return (
+      <div className="mx-auto max-w-7xl p-4 md:p-8 space-y-4">
+        <div className="h-4 w-48 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+        <div className="h-64 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />
+      </div>
+    )
+  }
+
+  const gradient = getCategoryGradient(club.category)
+
+  return (
+    <div className="mx-auto max-w-7xl p-4 md:p-8 space-y-6">
+      {/* Breadcrumb Top */}
+      <div className="flex items-center gap-2 text-xs md:text-sm">
+        <Link to="/" className="text-slate-400 hover:text-slate-600 dark:text-slate-500 font-medium">
+          Home
+        </Link>
+        <span className="text-slate-300 dark:text-slate-600">/</span>
+        <Link to="/clubs" className="text-slate-400 hover:text-slate-600 dark:text-slate-500 font-medium">
+          My Clubs
+        </Link>
+        <span className="text-slate-300 dark:text-slate-600">/</span>
+        <span className="font-semibold text-slate-900 dark:text-white truncate">{club.name}</span>
+      </div>
+
+      {/* Main Club Hero Card */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs dark:border-slate-800/80 dark:bg-[#181b24]">
+        {/* Cover Photo / Gradient */}
+        <div className="relative h-44 sm:h-56 md:h-64 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+          {club.logoB64 && club.logoB64.startsWith('data:image') ? (
+            <img src={club.logoB64} alt={club.name} className="h-full w-full object-cover" />
+          ) : (
+            <div className={`flex h-full w-full items-center justify-center bg-gradient-to-r ${gradient} p-6 text-white`}>
+              <span className="text-4xl sm:text-6xl font-black tracking-widest opacity-25 uppercase select-none">
+                {club.name}
+              </span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+        </div>
+
+        {/* Bottom Banner Content */}
+        <div className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Left: Icon + Info */}
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-[#12151e]">
+              <span className="text-2xl font-black text-[#6366f1] tracking-tight">
+                {club.name
+                  .split(' ')
+                  .map((w) => w[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{club.name}</h1>
+                <span className="rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-semibold text-purple-600 dark:bg-purple-950/40 dark:text-purple-300">
+                  {club.category || 'General'}
+                </span>
+              </div>
+              <p className="mt-1 text-xs md:text-sm text-slate-500 dark:text-slate-400 line-clamp-1">
+                {club.description || 'Student club and society.'}
+              </p>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {isPresident && (
-              <Button variant="secondary" size="sm" onClick={() => setShowEditClub(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-                Edit club
-              </Button>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            {/* Club Admin Pill */}
+            {(isOfficer || user?.role === 'SUPER_ADMIN') && (
+              <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-[#6366f1] dark:bg-indigo-950/40 dark:text-indigo-300">
+                Club Admin
+              </span>
             )}
-            {isPresident && !club.archived && (
-              <Button variant="danger" size="sm" onClick={handleArchiveClub}>
-                <Archive className="h-3.5 w-3.5" />
-                Archive club
-              </Button>
-            )}
-            {canDeleteClub && (
-              <Button variant="danger" size="sm" onClick={handleDeleteClub}>
-                <Archive className="h-3.5 w-3.5" />
-                Delete club
-              </Button>
-            )}
-            {isOfficer && !isPresident && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleClaimPresidency}
-                title="Available when the current President has graduated"
+
+            {/* Join / Joined Button */}
+            {effectiveMembershipStatus === 'APPROVED' ? (
+              <button
+                type="button"
+                onClick={isPresident ? undefined : handleLeave}
+                title={isPresident ? 'Club President' : 'Click to leave club'}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#6366f1] px-4 py-2 text-xs md:text-sm font-semibold text-white shadow-xs transition-all hover:bg-[#4f46e5]"
               >
-                Claim presidency
-              </Button>
-            )}
-            {effectiveMembershipStatus === 'APPROVED' && !isPresident && (
-              <Button variant="danger" size="sm" onClick={handleLeave}>
-                <LogOut className="h-3.5 w-3.5" />
-                Leave club
-              </Button>
-            )}
-            {canJoinClub && effectiveMembershipStatus !== 'APPROVED' && !club.archived && (
-              <Button size="sm" onClick={handleJoin} disabled={effectiveMembershipStatus === 'PENDING'}>
+                <span>Joined</span>
+                <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+              </button>
+            ) : effectiveMembershipStatus === 'PENDING' ? (
+              <button
+                type="button"
+                disabled
+                className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs md:text-sm font-semibold text-amber-800 opacity-90 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+              >
+                Requested
+              </button>
+            ) : canJoinClub && !club.archived ? (
+              <button
+                type="button"
+                onClick={handleJoin}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#6366f1] px-4 py-2 text-xs md:text-sm font-semibold text-white shadow-xs transition-all hover:bg-[#4f46e5]"
+              >
                 <UserPlus className="h-3.5 w-3.5" />
-                {effectiveMembershipStatus === 'PENDING'
-                  ? 'Request pending'
-                  : Number(club.membershipFee) > 0
-                    ? `Join club (fee ${club.membershipFee})`
-                    : 'Join club'}
-              </Button>
+                <span>Join Club</span>
+              </button>
+            ) : null}
+
+            {/* Share Link */}
+            <button
+              type="button"
+              onClick={handleShare}
+              title="Share club link"
+              className="rounded-xl border border-slate-200 p-2 text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </button>
+
+            {/* Admin Management Dropdown Button */}
+            {(isOfficer || user?.role === 'SUPER_ADMIN') && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminMenu((o) => !o)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Manage
+                </button>
+                {showAdminMenu && (
+                  <div className="absolute right-0 z-50 mt-1.5 w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg dark:border-slate-800 dark:bg-[#181b24]">
+                    {isPresident && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAdminMenu(false)
+                          setShowEditClub(true)
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit Club
+                      </button>
+                    )}
+                    {isOfficer && !isPresident && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAdminMenu(false)
+                          handleClaimPresidency()
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                      >
+                        <UserPlus className="h-3.5 w-3.5" />
+                        Claim Presidency
+                      </button>
+                    )}
+                    {isPresident && !club.archived && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAdminMenu(false)
+                          handleArchiveClub()
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                      >
+                        <Archive className="h-3.5 w-3.5" />
+                        Archive Club
+                      </button>
+                    )}
+                    {canDeleteClub && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAdminMenu(false)
+                          handleDeleteClub()
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete Club
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
       </div>
 
       {club.archived && (
-        <p className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
-          This club is archived — it no longer accepts members or events.
+        <p className="rounded-xl bg-red-50 px-4 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-400">
+          This club is archived — it no longer accepts new members or event scheduling.
         </p>
       )}
 
-      <div role="tablist" className="mt-5 flex gap-1 overflow-x-auto border-b border-border dark:border-border-dark">
+      {/* Tabs Navigation Bar */}
+      <div role="tablist" className="flex gap-2 overflow-x-auto border-b border-slate-200/80 dark:border-slate-800/80">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -456,10 +645,10 @@ function ClubDetailPage() {
             role="tab"
             aria-selected={activeTab === t.id}
             onClick={() => setTab(t.id)}
-            className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-fast ${
+            className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-all ${
               activeTab === t.id
-                ? 'border-brand-500 text-brand-600 dark:text-brand-300'
-                : 'border-transparent text-ink-muted hover:text-ink dark:text-ink-dark-muted dark:hover:text-ink-dark'
+                ? 'border-[#6366f1] text-[#6366f1] dark:border-[#818cf8] dark:text-[#818cf8]'
+                : 'border-transparent text-slate-400 hover:text-slate-800 dark:text-slate-500 dark:hover:text-slate-200'
             }`}
           >
             {t.label}
@@ -467,40 +656,63 @@ function ClubDetailPage() {
         ))}
       </div>
 
-      {activeTab === 'overview' && (
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <SectionCard title="About">
-              <p className="text-sm leading-relaxed text-ink-muted dark:text-ink-dark-muted">
-                {club.description || 'No description yet.'}
+      {/* TAB 1: ABOUT */}
+      {activeTab === 'about' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* Left Column (68%) */}
+          <div className="space-y-6 lg:col-span-8">
+            {/* Card 1: About Our Club */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs dark:border-slate-800/80 dark:bg-[#181b24]">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">About Our Club</h2>
+              <p className="mt-3 text-xs md:text-sm leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-line">
+                {club.description || 'No description provided for this club.'}
               </p>
-            </SectionCard>
+            </div>
 
-            {isOfficer && engagement.length > 0 && (
-              <ChartCard
-                title="Event engagement"
-                subtitle="RSVPs versus people who actually attended, per event"
-                legend={[
-                  { label: 'RSVPs', color: 'var(--chart-series-1)' },
-                  { label: 'Attended', color: 'var(--chart-series-2)' },
-                ]}
-                table={{
-                  columns: ['Event', 'RSVPs', 'Attended', 'No-shows'],
-                  rows: engagement.map((e) => [e.title, e.going, e.attended, e.noShows]),
-                }}
-              >
-                <ColumnChart
-                  ariaLabel="RSVPs versus attendance per event"
-                  series={[
-                    { label: 'RSVPs', color: 'var(--chart-series-1)' },
-                    { label: 'Attended', color: 'var(--chart-series-2)' },
-                  ]}
-                  data={engagement.map((e) => ({ label: e.title, values: [e.going, e.attended] }))}
-                />
-              </ChartCard>
-            )}
+            {/* Card 2: Club Officers */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs dark:border-slate-800/80 dark:bg-[#181b24]">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Club Officers</h2>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                {officers.length > 0 ? (
+                  officers.map((officer) => (
+                    <div
+                      key={officer.id}
+                      className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3 dark:border-slate-800/60 dark:bg-slate-900/40"
+                    >
+                      <MemberAvatar name={officer.userName} className="h-10 w-10 ring-1 ring-slate-200 dark:ring-slate-700" />
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-bold text-slate-900 dark:text-white">
+                          {officer.userName}
+                        </p>
+                        <p className="truncate text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                          {POSITION_LABEL[officer.position] || officer.position}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 col-span-3">No officers appointed yet.</p>
+                )}
+              </div>
+            </div>
 
-            <SectionCard title="Announcements">
+            {/* Card 3: Tags & Core Details */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs dark:border-slate-800/80 dark:bg-[#181b24]">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Club Details &amp; Tags</h2>
+              <div className="mt-3.5 flex flex-wrap gap-2">
+                {realClubTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 dark:bg-slate-800/80 dark:text-slate-300"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Announcements Feed in About Tab */}
+            <SectionCard title="Club Announcements">
               {isOfficer && (
                 <form onSubmit={handlePostAnnouncement} className="mb-4 flex gap-2">
                   <input
@@ -516,25 +728,25 @@ function ClubDetailPage() {
                 </form>
               )}
               {announcements.length === 0 && (
-                <p className="text-sm text-ink-muted dark:text-ink-dark-muted">No announcements yet.</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">No announcements posted yet.</p>
               )}
               <div className="space-y-3">
                 {announcements.map((a) => (
                   <div
                     key={a.id}
-                    className="flex items-start gap-3 rounded-lg bg-surface-muted p-4 dark:bg-surface-dark"
+                    className="flex items-start gap-3 rounded-xl bg-slate-50 p-3.5 dark:bg-slate-900/40"
                   >
                     <MemberAvatar name={a.authorName} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-ink dark:text-ink-dark">{a.authorName}</p>
-                      <p className="mt-0.5 text-sm text-ink dark:text-ink-dark">{a.content}</p>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white">{a.authorName}</p>
+                      <p className="mt-0.5 text-xs text-slate-700 dark:text-slate-300">{a.content}</p>
                       <AnnouncementComments clubId={clubId} announcementId={a.id} isPresident={isPresident} />
                     </div>
                     {(a.authorId === user?.id || isPresident) && (
                       <button
                         type="button"
                         onClick={() => handleDeleteAnnouncement(a.id)}
-                        className="shrink-0 text-xs text-danger hover:underline"
+                        className="shrink-0 text-xs text-red-500 hover:underline"
                       >
                         Delete
                       </button>
@@ -544,51 +756,24 @@ function ClubDetailPage() {
               </div>
             </SectionCard>
 
-            <ClubResources clubId={clubId} isOfficer={isOfficer} isPresident={isPresident} />
-
+            {/* Reported comments for president */}
             {isPresident && reports.length > 0 && (
-              <SectionCard title={`Reported comments (${reports.length})`}>
+              <SectionCard title={`Reported Comments (${reports.length})`}>
                 <div className="space-y-3">
                   {reports.map((r) => (
-                    <div key={r.id} className="rounded-lg bg-surface-muted p-3 dark:bg-surface-dark">
-                      <p className="text-sm text-ink dark:text-ink-dark">
-                        <span className="font-medium">{r.commentAuthorName}:</span> {r.commentContent}
+                    <div key={r.id} className="rounded-xl bg-slate-50 p-3.5 dark:bg-slate-900/40">
+                      <p className="text-xs text-slate-800 dark:text-slate-200">
+                        <span className="font-semibold">{r.commentAuthorName}:</span> {r.commentContent}
                       </p>
-                      <p className="mt-1 text-xs text-ink-muted dark:text-ink-dark-muted">
+                      <p className="mt-1 text-[11px] text-slate-400">
                         Reported by {r.reporterName}: {r.reason}
                       </p>
-                      <div className="mt-2 flex gap-2">
+                      <div className="mt-2.5 flex gap-2">
                         <Button variant="secondary" size="sm" onClick={() => handleResolveReport(r.id, 'DISMISS')}>
                           Dismiss
                         </Button>
                         <Button variant="danger" size="sm" onClick={() => handleResolveReport(r.id, 'DELETE_COMMENT')}>
-                          Remove comment
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </SectionCard>
-            )}
-
-            {pendingRequests.length > 0 && (
-              <SectionCard title={`Pending join requests (${pendingRequests.length})`}>
-                <div className="space-y-2">
-                  {pendingRequests.map((m) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between gap-3 rounded-lg bg-surface-muted p-3 dark:bg-surface-dark"
-                    >
-                      <span className="flex items-center gap-2 text-sm text-ink dark:text-ink-dark">
-                        <MemberAvatar name={m.userName} className="h-8 w-8" />
-                        {m.userName}
-                      </span>
-                      <div className="flex gap-2">
-                        <Button variant="success" size="sm" onClick={() => reviewRequest(m.id, true)}>
-                          Approve
-                        </Button>
-                        <Button variant="danger" size="sm" onClick={() => reviewRequest(m.id, false)}>
-                          Reject
+                          Remove Comment
                         </Button>
                       </div>
                     </div>
@@ -598,153 +783,138 @@ function ClubDetailPage() {
             )}
           </div>
 
-          <aside className="space-y-6">
-            {isOfficer && stats && (
-              <SectionCard title="Club stats">
-                <div className="grid grid-cols-2 gap-2">
-                  <StatTile label="Members" value={stats.memberCount} />
-                  <StatTile label="Events" value={stats.eventCount} />
-                  <StatTile label="RSVPs" value={stats.totalRsvps} />
-                  <StatTile label="Attendance" value={stats.totalAttendance} />
-                  <StatTile label="Income" value={stats.totalIncome} />
-                  <StatTile label="Expenses" value={stats.totalExpenses} />
-                  <StatTile label="Balance" value={stats.balance} className="col-span-2" />
-                </div>
-                {stats.totalRsvps > 0 && (
-                  <div className="mt-4">
-                    <div className="flex items-baseline justify-between text-sm">
-                      <span className="text-ink-muted dark:text-ink-dark-muted">Attendance rate</span>
-                      <span className="font-semibold tabular-nums text-ink dark:text-ink-dark">
-                        {Math.round(stats.attendanceRatePercent)}%
-                      </span>
-                    </div>
-                    <div
-                      className="mt-1.5 h-2 overflow-hidden rounded-full"
-                      style={{ background: 'var(--chart-track)' }}
-                      role="meter"
-                      aria-label="Attendance rate"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={Math.round(stats.attendanceRatePercent)}
-                    >
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.min(Math.max(stats.attendanceRatePercent, 0), 100)}%`,
-                          background: 'var(--chart-series-1)',
-                        }}
-                      />
-                    </div>
-                    {stats.averageEventRating > 0 && (
-                      <p className="mt-2 text-xs text-ink-muted dark:text-ink-dark-muted">
-                        Average event rating {stats.averageEventRating.toFixed(1)} / 5
-                      </p>
-                    )}
+          {/* Right Column (32%) */}
+          <aside className="space-y-5 lg:col-span-4">
+            {/* Card 1: Meeting & Schedule */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800/80 dark:bg-[#181b24]">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Meeting Schedule</h2>
+              {nextEvent ? (
+                <div className="mt-3.5 space-y-3 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="flex items-center gap-2.5">
+                    <Calendar className="h-4 w-4 text-[#6366f1] shrink-0" />
+                    <span>
+                      {new Date(nextEvent.eventDate).toLocaleDateString([], {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      })}{' '}
+                      — {formatEventTime(nextEvent.eventDate, nextEvent.endDate)}
+                    </span>
                   </div>
-                )}
-                <div className="mt-3 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => downloadBlob(`/analytics/clubs/${clubId}/csv`, 'club-stats.csv')}
-                    className="text-xs font-medium text-brand-600 hover:underline"
-                  >
-                    Stats CSV
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => downloadBlob(`/analytics/clubs/${clubId}/pdf`, 'club-report.pdf')}
-                    className="text-xs font-medium text-brand-600 hover:underline"
-                  >
-                    Stats PDF
-                  </button>
+                  <div className="flex items-center gap-2.5">
+                    <MapPin className="h-4 w-4 text-[#6366f1] shrink-0" />
+                    <span>
+                      {nextEvent.venueName
+                        ? `${nextEvent.venueName}${nextEvent.venueBuilding ? `, ${nextEvent.venueBuilding}` : ''}`
+                        : nextEvent.location || 'Campus venue'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Next session: <span className="font-medium text-slate-700 dark:text-slate-300">{nextEvent.title}</span>
+                  </p>
                 </div>
-              </SectionCard>
-            )}
+              ) : (
+                <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+                  No upcoming meeting or session scheduled yet.
+                </p>
+              )}
+            </div>
 
-            <SectionCard
-              title={showingRecent ? 'Recent events' : 'Upcoming events'}
-              action={
-                events.length > 0 && (
+            {/* Card 2: Upcoming Events */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800/80 dark:bg-[#181b24]">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">Upcoming Events</h2>
+                {events.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setTab('events')}
-                    className="text-xs font-medium text-brand-600 hover:underline"
+                    className="text-xs font-semibold text-[#6366f1] hover:underline dark:text-[#818cf8]"
                   >
-                    View all
+                    View All
                   </button>
-                )
-              }
-            >
-              {upcomingEvents.length === 0 && (
-                <p className="text-sm text-ink-muted dark:text-ink-dark-muted">No events yet.</p>
-              )}
-              <div className="space-y-2">
-                {upcomingEvents.map((e) => (
-                  <Link
-                    key={e.id}
-                    to={`/events/${e.id}`}
-                    className="flex items-center gap-3 rounded-lg p-2 transition-fast hover:bg-surface-muted dark:hover:bg-surface-dark"
-                  >
-                    <span className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
-                      <span className="text-[10px] font-semibold uppercase leading-none">
-                        {new Date(e.eventDate).toLocaleDateString(undefined, { month: 'short' })}
-                      </span>
-                      <span className="text-sm font-bold leading-tight">{new Date(e.eventDate).getDate()}</span>
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-ink dark:text-ink-dark">{e.title}</span>
-                      <span className="block text-xs text-ink-muted dark:text-ink-dark-muted">
-                        {new Date(e.eventDate).toLocaleDateString()}
-                      </span>
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </SectionCard>
-
-            <SectionCard
-              title="Members"
-              action={
-                <button
-                  type="button"
-                  onClick={() => setTab('members')}
-                  className="text-xs font-medium text-brand-600 hover:underline"
-                >
-                  View all
-                </button>
-              }
-            >
-              <div className="flex -space-x-2">
-                {members.slice(0, 6).map((m) => (
-                  <MemberAvatar
-                    key={m.id}
-                    name={m.userName}
-                    className="h-9 w-9 ring-2 ring-surface dark:ring-surface-dark-muted"
-                  />
-                ))}
-                {members.length > 6 && (
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-muted text-xs font-medium text-ink-muted ring-2 ring-surface dark:bg-surface-dark dark:text-ink-dark-muted dark:ring-surface-dark-muted">
-                    +{members.length - 6}
-                  </span>
                 )}
               </div>
-            </SectionCard>
 
-            <ChartCard
-              title="Members by role"
-              table={{ columns: ['Role', 'Members'], rows: membersByRole.map((r) => [r.label, r.value]) }}
-              empty={membersByRole.length === 0 ? 'No members yet.' : null}
-            >
-              <BarList items={membersByRole} />
-            </ChartCard>
+              {futureEvents.length > 0 ? (
+                <div className="mt-3.5 space-y-3">
+                  {futureEvents.slice(0, 3).map((e) => {
+                    const evtDate = new Date(e.eventDate)
+                    const month = evtDate.toLocaleDateString('en-US', { month: 'short' })
+                    const day = evtDate.getDate()
+                    return (
+                      <Link
+                        key={e.id}
+                        to={`/events/${e.id}`}
+                        className="flex items-center gap-3 rounded-xl p-2 transition-all hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                      >
+                        <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300">
+                          <span className="text-[10px] font-bold uppercase">{month}</span>
+                          <span className="text-xs font-black">{day}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-bold text-slate-900 dark:text-white">{e.title}</p>
+                          <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+                            {e.location || e.venueName || 'Campus'}
+                          </p>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">No upcoming events scheduled.</p>
+              )}
+            </div>
+
+            {/* Card 3: Quick Stats */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800/80 dark:bg-[#181b24]">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Quick Stats</h2>
+              <dl className="mt-3.5 divide-y divide-slate-100 text-xs dark:divide-slate-800">
+                <div className="flex items-center justify-between py-2">
+                  <dt className="text-slate-500 dark:text-slate-400">Total Members</dt>
+                  <dd className="font-bold text-slate-900 dark:text-white">{members.length}</dd>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <dt className="text-slate-500 dark:text-slate-400">Total Events</dt>
+                  <dd className="font-bold text-slate-900 dark:text-white">{events.length}</dd>
+                </div>
+                {stats?.totalRsvps != null && (
+                  <div className="flex items-center justify-between py-2">
+                    <dt className="text-slate-500 dark:text-slate-400">Total RSVPs</dt>
+                    <dd className="font-bold text-slate-900 dark:text-white">{stats.totalRsvps}</dd>
+                  </div>
+                )}
+                <div className="flex items-center justify-between py-2">
+                  <dt className="text-slate-500 dark:text-slate-400">Membership Fee</dt>
+                  <dd className="font-bold text-slate-900 dark:text-white">
+                    {Number(club.membershipFee) > 0 ? `$${club.membershipFee}` : 'Free'}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <dt className="text-slate-500 dark:text-slate-400">Certificate Requirement</dt>
+                  <dd className="font-bold text-slate-900 dark:text-white">
+                    {club.certificateThreshold ? `${club.certificateThreshold} events` : '3 events'}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <dt className="text-slate-500 dark:text-slate-400">Created</dt>
+                  <dd className="font-bold text-slate-900 dark:text-white">
+                    {club.createdAt
+                      ? new Date(club.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                      : 'N/A'}
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </aside>
         </div>
       )}
 
+      {/* TAB 2: EVENTS */}
       {activeTab === 'events' && (
         <section className="mt-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-ink dark:text-ink-dark">Events</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Club Events ({events.length})</h2>
             {isOfficer && (
               <Button size="sm" onClick={() => setShowCreateEvent(true)}>
                 <Plus className="h-3.5 w-3.5" />
@@ -753,12 +923,12 @@ function ClubDetailPage() {
             )}
           </div>
           {events.length === 0 && (
-            <p className="mt-3 text-sm text-ink-muted dark:text-ink-dark-muted">No events yet.</p>
+            <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">No events found for this club.</p>
           )}
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {events.map((e) => (
               <Card key={e.id} to={`/events/${e.id}`} className="overflow-hidden p-0">
-                <div className="flex aspect-video items-center justify-center bg-brand-gradient-soft text-brand-400 dark:text-brand-300">
+                <div className="flex aspect-video items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800">
                   {e.bannerB64 ? (
                     <img src={e.bannerB64} alt={e.title} className="h-full w-full object-cover" />
                   ) : (
@@ -766,8 +936,8 @@ function ClubDetailPage() {
                   )}
                 </div>
                 <div className="p-4">
-                  <p className="text-sm font-semibold text-ink dark:text-ink-dark">{e.title}</p>
-                  <p className="mt-1 text-xs text-ink-muted dark:text-ink-dark-muted">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{e.title}</p>
+                  <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                     {new Date(e.eventDate).toLocaleDateString()}
                   </p>
                 </div>
@@ -777,11 +947,12 @@ function ClubDetailPage() {
         </section>
       )}
 
-      {activeTab === 'members' && (
+      {/* TAB 3: MEMBERS */}
+      {canViewMembers && activeTab === 'members' && (
         <section className="mt-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-ink dark:text-ink-dark">
-              <Users className="h-4 w-4 text-brand-500" />
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white">
+              <Users className="h-4 w-4 text-[#6366f1]" />
               Members ({members.length})
             </h2>
             <div className="flex items-center gap-2">
@@ -789,30 +960,66 @@ function ClubDetailPage() {
                 View directory
               </Button>
               {canManageRecords && (
-                <label className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-ink transition-fast hover:bg-surface-muted dark:border-border-dark dark:bg-surface-dark-muted dark:text-ink-dark dark:hover:bg-surface-dark">
+                <label className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-[#181b24] dark:text-slate-300">
                   Import CSV
                   <input type="file" accept=".csv,text/csv" onChange={handleImportMembers} className="hidden" />
                 </label>
               )}
               {canManageRecords && (
-                <Button variant="secondary" size="sm" onClick={() => downloadBlob(`/clubs/${clubId}/members/csv`, 'members.csv')}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => downloadBlob(`/clubs/${clubId}/members/csv`, 'members.csv')}
+                >
                   <Download className="h-3.5 w-3.5" />
                   Export CSV
                 </Button>
               )}
             </div>
           </div>
+
+          {/* Pending Requests */}
+          {pendingRequests.length > 0 && isOfficer && (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+              <h3 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                Pending Join Requests ({pendingRequests.length})
+              </h3>
+              <div className="mt-3 space-y-2">
+                {pendingRequests.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-white p-3 shadow-xs dark:bg-[#181b24]"
+                  >
+                    <span className="flex items-center gap-2 text-xs font-medium text-slate-900 dark:text-white">
+                      <MemberAvatar name={m.userName} className="h-8 w-8" />
+                      {m.userName}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button variant="success" size="sm" onClick={() => reviewRequest(m.id, true)}>
+                        Approve
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={() => reviewRequest(m.id, false)}>
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Members Grid */}
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {members.map((m) => (
               <Card key={m.id} interactive={false} className="flex items-center gap-3">
                 <MemberAvatar name={m.userName} className="h-10 w-10" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-ink dark:text-ink-dark">{m.userName}</span>
+                  <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">{m.userName}</span>
                   {isPresident ? (
                     <select
                       value={m.position}
                       onChange={(e) => handleAssignPosition(m.id, e.target.value)}
-                      className="mt-0.5 rounded-full border border-border bg-surface-muted px-2 py-0.5 text-xs font-medium text-ink-muted outline-none dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark-muted"
+                      className="mt-0.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                     >
                       {ALL_POSITIONS.map((p) => (
                         <option key={p} value={p}>
@@ -832,7 +1039,7 @@ function ClubDetailPage() {
                     title="Remove from club"
                     aria-label={`Remove ${m.userName}`}
                     onClick={() => handleRemoveMember(m.id, m.userName)}
-                    className="rounded-md p-1.5 text-ink-muted transition-fast hover:bg-danger/10 hover:text-danger"
+                    className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
                   >
                     <UserMinus className="h-4 w-4" />
                   </button>
@@ -843,10 +1050,18 @@ function ClubDetailPage() {
         </section>
       )}
 
+      {/* TAB 4: GALLERY / RESOURCES */}
+      {activeTab === 'gallery' && (
+        <section className="mt-6">
+          <ClubResources clubId={clubId} isOfficer={isOfficer} isPresident={isPresident} />
+        </section>
+      )}
+
+      {/* TAB 5: BUDGET */}
       {activeTab === 'budget' && canManageLedger && ledger && (
         <section className="mt-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-ink dark:text-ink-dark">Budget ledger</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Budget Ledger</h2>
             <Button size="sm" onClick={() => setShowLogExpense(true)}>
               <Plus className="h-3.5 w-3.5" />
               Log expense
@@ -857,47 +1072,18 @@ function ClubDetailPage() {
             <div className="space-y-6 lg:col-span-2">
               <div className="grid grid-cols-3 gap-3">
                 <Card interactive={false}>
-                  <p className="text-xs text-ink-muted dark:text-ink-dark-muted">Total income</p>
-                  <p className="mt-1 text-xl font-bold text-success">{ledger.totalIncome}</p>
+                  <p className="text-xs text-slate-400">Total income</p>
+                  <p className="mt-1 text-xl font-bold text-emerald-600">${ledger.totalIncome}</p>
                 </Card>
                 <Card interactive={false}>
-                  <p className="text-xs text-ink-muted dark:text-ink-dark-muted">Total expenses</p>
-                  <p className="mt-1 text-xl font-bold text-danger">{ledger.totalExpenses}</p>
+                  <p className="text-xs text-slate-400">Total expenses</p>
+                  <p className="mt-1 text-xl font-bold text-red-600">${ledger.totalExpenses}</p>
                 </Card>
                 <Card interactive={false}>
-                  <p className="text-xs text-ink-muted dark:text-ink-dark-muted">Balance</p>
-                  <p className="mt-1 text-xl font-bold text-ink dark:text-ink-dark">{ledger.balance}</p>
+                  <p className="text-xs text-slate-400">Balance</p>
+                  <p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">${ledger.balance}</p>
                 </Card>
               </div>
-
-              {ledger.eventBudgets?.length > 0 && (
-                <SectionCard title="Event budgets" className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="text-xs uppercase text-ink-muted dark:text-ink-dark-muted">
-                      <tr>
-                        <th className="pb-2 font-medium">Event</th>
-                        <th className="pb-2 font-medium">Budget</th>
-                        <th className="pb-2 font-medium">Spent</th>
-                        <th className="pb-2 font-medium">Left</th>
-                        <th className="pb-2 font-medium">Fees in</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-ink dark:text-ink-dark">
-                      {ledger.eventBudgets.map((b) => (
-                        <tr key={b.eventId} className="border-t border-border dark:border-border-dark">
-                          <td className="py-2.5 font-medium">{b.title}</td>
-                          <td className="py-2.5">{b.budget ?? '—'}</td>
-                          <td className="py-2.5">{b.spent}</td>
-                          <td className={`py-2.5 ${b.remaining != null && Number(b.remaining) < 0 ? 'text-danger' : ''}`}>
-                            {b.remaining ?? '—'}
-                          </td>
-                          <td className="py-2.5">{b.income}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </SectionCard>
-              )}
 
               {ledger.expenses.length > 0 && (
                 <ChartCard
@@ -918,23 +1104,23 @@ function ClubDetailPage() {
 
               <SectionCard title="Expenses">
                 {ledger.expenses.length === 0 && (
-                  <p className="text-sm text-ink-muted dark:text-ink-dark-muted">No expenses logged yet.</p>
+                  <p className="text-xs text-slate-400">No expenses logged yet.</p>
                 )}
-                <div className="divide-y divide-border dark:divide-border-dark">
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {ledger.expenses.map((e) => (
                     <div key={e.id} className="flex items-center justify-between gap-3 py-2.5">
                       <div>
-                        <p className="text-sm font-medium text-ink dark:text-ink-dark">{e.description}</p>
-                        <p className="text-xs text-ink-muted dark:text-ink-dark-muted">
+                        <p className="text-sm font-medium text-slate-900 dark:text-white">{e.description}</p>
+                        <p className="text-xs text-slate-400">
                           {e.expenseDate} — logged by {e.loggedByName}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-danger">-{e.amount}</span>
+                        <span className="text-sm font-semibold text-red-600">-${e.amount}</span>
                         <button
                           type="button"
                           onClick={() => handleDeleteExpense(e.id)}
-                          className="text-xs text-danger hover:underline"
+                          className="text-xs text-red-500 hover:underline"
                         >
                           Delete
                         </button>
@@ -949,18 +1135,18 @@ function ClubDetailPage() {
               <Donut value={totalExpenses} total={totalIncome} />
               <dl className="mt-4 w-full space-y-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <dt className="flex items-center gap-2 text-ink-muted dark:text-ink-dark-muted">
-                    <span className="h-2.5 w-2.5 rounded-full bg-brand-500" />
+                  <dt className="flex items-center gap-2 text-slate-500">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#6366f1]" />
                     Spent
                   </dt>
-                  <dd className="font-medium text-ink dark:text-ink-dark">{ledger.totalExpenses}</dd>
+                  <dd className="font-medium text-slate-900 dark:text-white">${ledger.totalExpenses}</dd>
                 </div>
                 <div className="flex items-center justify-between">
-                  <dt className="flex items-center gap-2 text-ink-muted dark:text-ink-dark-muted">
-                    <span className="h-2.5 w-2.5 rounded-full bg-surface-muted ring-1 ring-border dark:bg-surface-dark dark:ring-border-dark" />
+                  <dt className="flex items-center gap-2 text-slate-500">
+                    <span className="h-2.5 w-2.5 rounded-full bg-slate-200 dark:bg-slate-700" />
                     Remaining
                   </dt>
-                  <dd className="font-medium text-ink dark:text-ink-dark">{ledger.balance}</dd>
+                  <dd className="font-medium text-slate-900 dark:text-white">${ledger.balance}</dd>
                 </div>
               </dl>
             </SectionCard>
@@ -968,6 +1154,7 @@ function ClubDetailPage() {
         </section>
       )}
 
+      {/* Modals */}
       {showCreateEvent && (
         <CreateEventModal
           clubId={clubId}

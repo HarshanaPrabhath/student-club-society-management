@@ -12,8 +12,14 @@ vi.mock('../../api/axios', () => ({
   default: { get: vi.fn(), post: vi.fn() },
 }))
 
-function renderWithProviders(ui) {
-  const store = configureStore({ reducer: { clubs: clubsReducer } })
+function renderWithProviders(ui, { initialState } = {}) {
+  const store = configureStore({
+    reducer: {
+      clubs: clubsReducer,
+      auth: (state = { user: null }) => state,
+    },
+    preloadedState: initialState,
+  })
   return render(
     <Provider store={store}>
       <ToastProvider>
@@ -30,7 +36,7 @@ describe('ClubsPage', () => {
 
     renderWithProviders(<ClubsPage />)
 
-    expect(await screen.findByText(/no clubs yet/i)).toBeInTheDocument()
+    expect(await screen.findByText(/no clubs available yet/i)).toBeInTheDocument()
   })
 
   it('renders club cards once the fetch resolves', async () => {
@@ -47,10 +53,23 @@ describe('ClubsPage', () => {
     expect(screen.getByText('Games')).toBeInTheDocument()
   })
 
-  it('opens the create-club modal on button click', async () => {
+  it('does not show create-club button for normal students', async () => {
     const axios = (await import('../../api/axios')).default
     axios.get.mockResolvedValueOnce({ data: [] })
-    renderWithProviders(<ClubsPage />)
+    renderWithProviders(<ClubsPage />, {
+      initialState: { auth: { user: { role: 'STUDENT', name: 'Student' } } },
+    })
+
+    await screen.findByText(/no clubs available yet/i)
+    expect(screen.queryByRole('button', { name: /create club/i })).not.toBeInTheDocument()
+  })
+
+  it('opens the create-club modal on button click for super admin', async () => {
+    const axios = (await import('../../api/axios')).default
+    axios.get.mockResolvedValueOnce({ data: [] })
+    renderWithProviders(<ClubsPage />, {
+      initialState: { auth: { user: { role: 'SUPER_ADMIN', name: 'Admin' } } },
+    })
     const user = userEvent.setup()
 
     await screen.findByText(/no clubs yet/i)

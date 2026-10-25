@@ -1,7 +1,7 @@
-import { Search, Users } from 'lucide-react'
+import { Search, ShieldAlert, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import Badge from '../../components/ui/Badge'
 import Breadcrumbs from '../../components/Breadcrumbs'
 import Card from '../../components/ui/Card'
@@ -27,6 +27,7 @@ function formatDate(iso) {
 function MemberDirectoryPage() {
   const { clubId } = useParams()
   const dispatch = useDispatch()
+  const user = useSelector((state) => state.auth.user)
   const { items, status } = useSelector((state) => state.memberships)
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('name')
@@ -34,6 +35,10 @@ function MemberDirectoryPage() {
   useEffect(() => {
     dispatch(fetchClubMembers(clubId))
   }, [dispatch, clubId])
+
+  const myMembership = items.find((m) => m.userId === user?.id)
+  const isOfficer = ['PRESIDENT', 'VP', 'SECRETARY', 'TREASURER'].includes(myMembership?.position)
+  const isAuthorized = user?.role === 'SUPER_ADMIN' || user?.role === 'FACULTY_ADVISOR' || isOfficer
 
   const clubName = items[0]?.clubName
 
@@ -45,6 +50,30 @@ function MemberDirectoryPage() {
       return new Date(a.joinedAt) - new Date(b.joinedAt)
     })
   }, [items, search, sortBy])
+
+  if (status !== 'loading' && !isAuthorized) {
+    return (
+      <div className="mx-auto max-w-xl p-4 py-16 md:p-8 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
+          <ShieldAlert className="h-7 w-7" />
+        </div>
+        <h2 className="mt-4 text-xl font-bold text-slate-900 dark:text-white">
+          Restricted to Club Officers
+        </h2>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          The member directory and member management are only accessible to club presidents and designated club officers.
+        </p>
+        <div className="mt-6">
+          <Link
+            to={`/clubs/${clubId}`}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#6366f1] px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#4f46e5]"
+          >
+            Back to Club Details
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">

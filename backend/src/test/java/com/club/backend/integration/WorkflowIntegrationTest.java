@@ -63,27 +63,29 @@ class WorkflowIntegrationTest extends IntegrationTestBase {
                 .content("{\"name\":\"Again\",\"email\":\"it-newbie@example.test\",\"password\":\"password123\"}"))
                 .andExpect(status().isConflict());
 
-        MvcResult proposed = mvc.perform(post("/api/clubs").header("Authorization", token).contentType(JSON)
+        // Normal students cannot create a club — rejected with 403 Forbidden.
+        mvc.perform(post("/api/clubs").header("Authorization", token).contentType(JSON)
+                .content("{\"name\":\"Robotics Society\",\"category\":\"Tech\",\"description\":\"We build robots\","
+                        + "\"joinPolicy\":\"OPEN\",\"membershipFee\":0,\"certificateThreshold\":2}"))
+                .andExpect(status().isForbidden());
+
+        // Clubs are created directly by Super Admin as APPROVED.
+        MvcResult created = mvc.perform(post("/api/clubs").header("Authorization", bearer(admin)).contentType(JSON)
                 .content("{\"name\":\"Robotics Society\",\"category\":\"Tech\",\"description\":\"We build robots\","
                         + "\"joinPolicy\":\"OPEN\",\"membershipFee\":0,\"certificateThreshold\":2}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.status").value("APPROVED"))
                 .andExpect(jsonPath("$.certificateThreshold").value(2))
                 .andReturn();
-        String clubId = read(proposed, "$.id");
+        String clubId = read(created, "$.id");
 
-        // Pending clubs are invisible to browsing; a duplicate name is refused.
-        mvc.perform(get("/api/clubs").header("Authorization", token)).andExpect(jsonPath("$.length()").value(0));
-        mvc.perform(post("/api/clubs").header("Authorization", token).contentType(JSON)
-                .content("{\"name\":\"robotics society\",\"category\":\"Tech\"}")).andExpect(status().isConflict());
-
-        mvc.perform(post("/api/clubs/" + clubId + "/approve").header("Authorization", bearer(admin)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"));
+        // Approved clubs are visible to browsing; duplicate name is refused.
         mvc.perform(get("/api/clubs").header("Authorization", token)).andExpect(jsonPath("$.length()").value(1));
-        // The creator is the President and got told.
-        mvc.perform(get("/api/notifications/me").header("Authorization", token))
-                .andExpect(jsonPath("$[0].message").value(org.hamcrest.Matchers.containsString("approved")));
+        mvc.perform(post("/api/clubs").header("Authorization", bearer(admin)).contentType(JSON)
+                .content("{\"name\":\"robotics society\",\"category\":\"Tech\"}"))
+                .andExpect(status().isConflict());
     }
+
 
     // ---------------------------------------------------------------- money
 

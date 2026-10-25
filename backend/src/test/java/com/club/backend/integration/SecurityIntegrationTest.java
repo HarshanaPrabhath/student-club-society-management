@@ -101,6 +101,9 @@ class SecurityIntegrationTest extends IntegrationTestBase {
         mvc.perform(post("/api/events/" + UUID.randomUUID() + "/approve").header("Authorization", token)).andExpect(status().isForbidden());
         mvc.perform(post("/api/clubs/" + club.getId() + "/approve").header("Authorization", token)).andExpect(status().isForbidden());
         mvc.perform(post("/api/clubs/" + club.getId() + "/unarchive").header("Authorization", token)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/clubs").header("Authorization", token).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"New Club\",\"category\":\"Tech\"}"))
+                .andExpect(status().isForbidden());
         mvc.perform(post("/api/venues").header("Authorization", token).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"Hall\"}")).andExpect(status().isForbidden());
     }

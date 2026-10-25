@@ -32,6 +32,4 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     /** Users who want emails but batched into the daily digest. */
     List<User> findByEmailNotificationsEnabledTrueAndEmailDigestEnabledTrue();
-
-    List<User> findByGraduationYearLessThan(int year);
 }

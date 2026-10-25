@@ -4,7 +4,6 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import AuditLogPage from './features/admin/AuditLogPage'
 import UserManagementPage from './features/admin/UserManagementPage'
-import AlumniDirectoryPage from './features/alumni/AlumniDirectoryPage'
 import UniversityStatsPage from './features/analytics/UniversityStatsPage'
 import ForgotPasswordPage from './features/auth/ForgotPasswordPage'
 import LoginPage from './features/auth/LoginPage'
@@ -69,7 +68,6 @@ function App() {
           <Route path="/admin/users" element={<UserManagementPage />} />
           <Route path="/admin/audit-log" element={<AuditLogPage />} />
           <Route path="/admin/venues" element={<ManageVenuesPage />} />
-          <Route path="/alumni" element={<AlumniDirectoryPage />} />
         </Route>
       </Route>
 

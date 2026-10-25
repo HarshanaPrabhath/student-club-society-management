@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { useToast } from '../../components/ToastProvider'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -11,8 +11,11 @@ const inputClass =
 
 function CreateClubModal({ club, onClose, onCreated }) {
   const dispatch = useDispatch()
+  const user = useSelector((state) => state.auth?.user)
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   const { showToast } = useToast()
   const isEdit = Boolean(club)
+
   const [name, setName] = useState(club?.name || '')
   const [category, setCategory] = useState(club?.category || '')
   const [description, setDescription] = useState(club?.description || '')
@@ -22,6 +25,11 @@ function CreateClubModal({ club, onClose, onCreated }) {
   const [certificateThreshold, setCertificateThreshold] = useState(String(club?.certificateThreshold ?? 3))
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Students and other non-admins cannot create new clubs.
+  if (!isEdit && !isSuperAdmin) {
+    return null
+  }
 
   async function handleLogoChange(e) {
     const file = e.target.files?.[0]
@@ -52,7 +60,7 @@ function CreateClubModal({ club, onClose, onCreated }) {
     const action = isEdit ? updateClub : createClub
     if (action.fulfilled.match(result)) {
       const saved = result.payload
-      showToast(isEdit ? 'Club updated' : saved.status === 'PENDING' ? 'Club proposal submitted for approval' : 'Club created')
+      showToast(isEdit ? 'Club updated' : 'Club created')
       onCreated?.(saved)
       onClose()
     } else {

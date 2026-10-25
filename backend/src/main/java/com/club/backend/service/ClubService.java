@@ -245,28 +245,33 @@ public class ClubService {
     /** Active (approved, not archived) clubs, optionally narrowed by category and a free-text name/description match. */
     public List<ClubResponse> listApprovedClubs(String category, String query) {
         return clubRepository.findAll(ClubSpecifications.active(category, query), Sort.by("name"))
-                .stream().map(ClubResponse::from).toList();
+                .stream().map(this::toClubResponse).toList();
     }
 
     /** The same filters, one page at a time, done by the database. */
     @Transactional(readOnly = true)
     public Page<ClubResponse> pageApprovedClubs(String category, String query, Pageable pageable) {
-        return clubRepository.findAll(ClubSpecifications.active(category, query), pageable).map(ClubResponse::from);
+        return clubRepository.findAll(ClubSpecifications.active(category, query), pageable).map(this::toClubResponse);
     }
 
     public List<ClubResponse> listPendingClubs() {
-        return clubRepository.findByStatus(ClubStatus.PENDING).stream().map(ClubResponse::from).toList();
+        return clubRepository.findByStatus(ClubStatus.PENDING).stream().map(this::toClubResponse).toList();
     }
 
     /** University-wide read-only oversight (Super Admin, Faculty Advisor) — every club regardless of status. */
     public List<ClubResponse> listAllClubs() {
-        return clubRepository.findAll().stream().map(ClubResponse::from).toList();
+        return clubRepository.findAll().stream().map(this::toClubResponse).toList();
     }
 
     public ClubResponse getClub(UUID clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> ApiException.notFound("Club not found"));
-        return ClubResponse.from(club);
+        return toClubResponse(club);
+    }
+
+    private ClubResponse toClubResponse(Club club) {
+        long count = membershipRepository.countByClubIdAndStatus(club.getId(), MembershipStatus.APPROVED);
+        return ClubResponse.from(club, count);
     }
 
     /** Permanently removes a club and its foreign-keyed data. Restricted at the controller to Super Admins. */

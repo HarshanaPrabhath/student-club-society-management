@@ -1,5 +1,7 @@
-import { CalendarCheck, ClipboardList, Download, Flag, GraduationCap, Wallet } from 'lucide-react'
+import { CalendarCheck, ClipboardList, Download, Flag, GraduationCap, ShieldAlert, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useSelector } from 'react-redux'
+import { Link } from 'react-router-dom'
 import api from '../../api/axios'
 import BarList from '../../components/charts/BarList'
 import ChartCard from '../../components/charts/ChartCard'
@@ -29,21 +31,49 @@ function countBy(items, getKey) {
 }
 
 function UniversityStatsPage() {
+  const user = useSelector((state) => state.auth.user)
+  const isAuthorized = user?.role === 'SUPER_ADMIN' || user?.role === 'FACULTY_ADVISOR'
+
   const [stats, setStats] = useState(null)
   const [error, setError] = useState(null)
   const [events, setEvents] = useState([])
   const [clubs, setClubs] = useState([])
 
   useEffect(() => {
+    if (!isAuthorized) return
     api.get('/analytics/university').then((res) => setStats(res.data)).catch((e) => setError(e.response?.data?.message || 'Could not load analytics'))
     api.get('/events').then((res) => setEvents(res.data)).catch(() => {})
     api.get('/clubs').then((res) => setClubs(res.data)).catch(() => {})
-  }, [])
+  }, [isAuthorized])
 
   const liveEvents = useMemo(() => events.filter((e) => !e.cancelled), [events])
   const eventsByMonth = useMemo(() => monthlyCounts(liveEvents, (e) => e.eventDate, { before: 5, after: 2 }), [liveEvents])
   const clubsByCategory = useMemo(() => countBy(clubs, (c) => c.category), [clubs])
   const busiestClubs = useMemo(() => countBy(liveEvents, (e) => e.clubName).slice(0, 6), [liveEvents])
+
+  if (user && !isAuthorized) {
+    return (
+      <div className="mx-auto max-w-xl p-4 py-16 md:p-8 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
+          <ShieldAlert className="h-7 w-7" />
+        </div>
+        <h2 className="mt-4 text-xl font-bold text-slate-900 dark:text-white">
+          Restricted Access
+        </h2>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          University budget and analytics are restricted to faculty advisors and university administrators.
+        </p>
+        <div className="mt-6">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#6366f1] px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#4f46e5]"
+          >
+            Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   if (error) {
     return <div className="mx-auto max-w-6xl p-4 text-sm text-danger md:p-8">{error}</div>
