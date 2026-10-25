@@ -34,6 +34,7 @@ public class ClubController {
     private final ClubService clubService;
 
     @PostMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ClubResponse> createClub(@RequestBody CreateClubRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(clubService.createClub(request, principal));
