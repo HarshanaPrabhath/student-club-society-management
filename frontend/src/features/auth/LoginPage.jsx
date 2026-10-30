@@ -1,4 +1,4 @@
-import { Lock, Mail } from 'lucide-react'
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useNavigate } from 'react-router-dom'
@@ -15,6 +15,7 @@ function LoginPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [touched, setTouched] = useState({})
 
   const emailError =
@@ -63,12 +64,21 @@ function LoginPage() {
             <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted dark:text-ink-dark-muted" />
             <input
               id="password"
-              type="password"
-              className={inputClass}
+              type={showPassword ? 'text' : 'password'}
+              className="w-full rounded-md border border-border bg-surface py-2 pl-9 pr-10 text-sm text-ink outline-none transition-fast focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, password: true }))}
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted transition-fast hover:text-ink dark:text-ink-dark-muted dark:hover:text-ink-dark focus:outline-none"
+              aria-label={showPassword ? 'Hide' : 'Show'}
+              title={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
           {passwordError && <p className="mt-1 text-xs text-danger">{passwordError}</p>}
         </div>

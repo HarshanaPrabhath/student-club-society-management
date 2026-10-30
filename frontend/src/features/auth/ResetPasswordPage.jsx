@@ -1,3 +1,4 @@
+import { Eye, EyeOff, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -5,7 +6,7 @@ import AuthCard from './AuthCard'
 import { resetPassword } from './authSlice'
 
 const inputClass =
-  'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink outline-none transition-fast focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark'
+  'w-full rounded-md border border-border bg-surface py-2 pl-9 pr-10 text-sm text-ink outline-none transition-fast focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark'
 
 function ResetPasswordPage() {
   const dispatch = useDispatch()
@@ -15,6 +16,7 @@ function ResetPasswordPage() {
   const { status, error } = useSelector((state) => state.auth)
 
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [touched, setTouched] = useState(false)
 
   const passwordError =
@@ -52,14 +54,26 @@ function ResetPasswordPage() {
           <label className="mb-1 block text-sm font-medium text-ink dark:text-ink-dark" htmlFor="password">
             New password
           </label>
-          <input
-            id="password"
-            type="password"
-            className={inputClass}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onBlur={() => setTouched(true)}
-          />
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted dark:text-ink-dark-muted" />
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              className={inputClass}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onBlur={() => setTouched(true)}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted transition-fast hover:text-ink dark:text-ink-dark-muted dark:hover:text-ink-dark focus:outline-none"
+              aria-label={showPassword ? 'Hide' : 'Show'}
+              title={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
           {passwordError && <p className="mt-1 text-xs text-danger">{passwordError}</p>}
         </div>
 

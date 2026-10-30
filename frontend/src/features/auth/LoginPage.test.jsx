@@ -50,4 +50,21 @@ describe('LoginPage', () => {
     expect(screen.queryByText(/enter a valid email address/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/password is required/i)).not.toBeInTheDocument()
   })
+
+  it('toggles password visibility between password and text when eye button is clicked', async () => {
+    renderWithProviders(<LoginPage />)
+    const user = userEvent.setup()
+
+    const passwordInput = screen.getByLabelText(/password/i)
+    expect(passwordInput).toHaveAttribute('type', 'password')
+
+    const toggleButton = screen.getByRole('button', { name: /^show$/i })
+    await user.click(toggleButton)
+
+    expect(passwordInput).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: /^hide$/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^hide$/i }))
+    expect(passwordInput).toHaveAttribute('type', 'password')
+  })
 })

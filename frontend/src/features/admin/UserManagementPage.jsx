@@ -1,4 +1,4 @@
-import { Plus, Search, UserCheck, UserCog, UserX } from 'lucide-react'
+import { Eye, EyeOff, Plus, Search, UserCheck, UserCog, UserX } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
 import api from '../../api/axios'
@@ -42,6 +42,7 @@ function UserFormModal({ user, isSelf, onClose, onSubmit }) {
   const [name, setName] = useState(user?.name || '')
   const [email, setEmail] = useState(user?.email || '')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [role, setRole] = useState(user?.role || 'STUDENT')
   const [submitting, setSubmitting] = useState(false)
   const editing = Boolean(user)
@@ -80,15 +81,26 @@ function UserFormModal({ user, isSelf, onClose, onSubmit }) {
             <label className={labelClass} htmlFor="user-password">
               Temporary password
             </label>
-            <input
-              id="user-password"
-              type="password"
-              autoComplete="new-password"
-              className={inputClass}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              aria-describedby="user-password-hint"
-            />
+            <div className="relative">
+              <input
+                id="user-password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                className={`${inputClass} pr-10`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                aria-describedby="user-password-hint"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted transition-fast hover:text-ink dark:text-ink-dark-muted dark:hover:text-ink-dark focus:outline-none"
+                aria-label={showPassword ? 'Hide' : 'Show'}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             <p id="user-password-hint" className="mt-1 text-xs text-ink-muted dark:text-ink-dark-muted">
               At least 8 characters. Share it with the user; they can change it from their profile.
             </p>
@@ -118,7 +130,7 @@ function UserFormModal({ user, isSelf, onClose, onSubmit }) {
 
 function UserManagementPage() {
   const { showToast } = useToast()
-  const currentUser = useSelector((state) => state.auth.user)
+  const currentUser = useSelector((state) => state.auth.user); const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
   const [users, setUsers] = useState(null)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(0)
@@ -180,10 +192,12 @@ function UserManagementPage() {
       return
     }
     try {
+      setUsers((prev) => (prev ? prev.map((u) => (u.id === user.id ? { ...u, active } : u)) : prev))
       await api.post(`/admin/users/${user.id}/${active ? 'activate' : 'deactivate'}`)
       showToast(active ? 'User reactivated' : 'User deactivated')
       load()
     } catch (e) {
+      load()
       showToast(e.response?.data?.message || 'Could not update user', 'error')
     }
   }
@@ -193,13 +207,19 @@ function UserManagementPage() {
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader
-        title="Manage users"
-        description="Create accounts, assign roles and deactivate users. Every change is recorded in the audit log."
+        title={isSuperAdmin ? 'Manage users' : 'Club Members Directory'}
+        description={
+          isSuperAdmin
+            ? 'Create accounts, assign roles and deactivate users. Every change is recorded in the audit log.'
+            : 'View and manage active/deactivated platform access for members of your club.'
+        }
         actions={
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus className="h-4 w-4" />
-            New user
-          </Button>
+          isSuperAdmin ? (
+            <Button onClick={() => setShowCreate(true)}>
+              <Plus className="h-4 w-4" />
+              New user
+            </Button>
+          ) : null
         }
       />
 
@@ -217,27 +237,29 @@ function UserManagementPage() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <div>
-          <label htmlFor="user-role-filter" className="sr-only">
-            Filter by role
-          </label>
-          <select
-            id="user-role-filter"
-            className={inputClass}
-            value={roleFilter}
-            onChange={(e) => {
-              setPage(0)
-              setRoleFilter(e.target.value)
-            }}
-          >
-            <option value="">All roles</option>
-            {Object.entries(ROLE_LABEL).map(([role, label]) => (
-              <option key={role} value={role}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {isSuperAdmin && (
+          <div>
+            <label htmlFor="user-role-filter" className="sr-only">
+              Filter by role
+            </label>
+            <select
+              id="user-role-filter"
+              className={inputClass}
+              value={roleFilter}
+              onChange={(e) => {
+                setPage(0)
+                setRoleFilter(e.target.value)
+              }}
+            >
+              <option value="">All roles</option>
+              {Object.entries(ROLE_LABEL).map(([role, label]) => (
+                <option key={role} value={role}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <Button type="submit" variant="secondary">
           Search
         </Button>
@@ -283,7 +305,9 @@ function UserManagementPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-semibold text-ink dark:text-ink-dark">{user.name}</p>
-                        <Badge tone={ROLE_TONE[user.role]}>{ROLE_LABEL[user.role] || user.role}</Badge>
+                        {isSuperAdmin && (
+                          <Badge tone={ROLE_TONE[user.role]}>{ROLE_LABEL[user.role] || user.role}</Badge>
+                        )}
                         <Badge tone={user.active ? 'success' : 'danger'}>{user.active ? 'Active' : 'Deactivated'}</Badge>
                         {isSelf && <Badge tone="neutral">You</Badge>}
                       </div>
@@ -305,16 +329,18 @@ function UserManagementPage() {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 sm:pl-4">
-                    <Button variant="secondary" size="sm" onClick={() => setEditing(user)} aria-label={`Edit ${user.name}`}>
-                      <UserCog className="h-4 w-4" />
-                      Edit
-                    </Button>
+                    {isSuperAdmin && (
+                      <Button variant="secondary" size="sm" onClick={() => setEditing(user)} aria-label={`Edit ${user.name}`}>
+                        <UserCog className="h-4 w-4" />
+                        Edit
+                      </Button>
+                    )}
                     {user.active ? (
                       <Button
                         variant="dangerOutline"
                         size="sm"
-                        disabled={isSelf}
-                        title={isSelf ? 'You cannot deactivate your own account' : undefined}
+                        disabled={isSelf || (!isSuperAdmin && user.role !== 'STUDENT')}
+                        title={isSelf ? 'You cannot deactivate your own account' : !isSuperAdmin && user.role !== 'STUDENT' ? 'Presidents can only deactivate student accounts' : undefined}
                         onClick={() => handleSetActive(user, false)}
                         aria-label={`Deactivate ${user.name}`}
                       >
@@ -368,3 +394,6 @@ function UserManagementPage() {
 }
 
 export default UserManagementPage
+
+
+

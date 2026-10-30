@@ -85,4 +85,21 @@ describe('RegisterPage', () => {
     expect(screen.getByText(/if you already have an account/i)).toBeInTheDocument()
     expect(localStorage.getItem('accessToken')).toBeNull()
   })
+
+  it('toggles password visibility between password and text when eye button is clicked', async () => {
+    renderWithProviders(<RegisterPage />)
+    const user = userEvent.setup()
+
+    const passwordInput = screen.getByLabelText(/^password/i)
+    expect(passwordInput).toHaveAttribute('type', 'password')
+
+    const toggleButton = screen.getByRole('button', { name: /^show$/i })
+    await user.click(toggleButton)
+
+    expect(passwordInput).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: /^hide$/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^hide$/i }))
+    expect(passwordInput).toHaveAttribute('type', 'password')
+  })
 })

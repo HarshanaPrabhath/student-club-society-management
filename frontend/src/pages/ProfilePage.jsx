@@ -1,3 +1,4 @@
+import { Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
@@ -26,6 +27,8 @@ function ProfilePage() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
   const [passwordError, setPasswordError] = useState(null)
   const [changingPassword, setChangingPassword] = useState(false)
 
@@ -122,6 +125,23 @@ function ProfilePage() {
             </div>
             <p className="mt-3 font-semibold text-ink dark:text-ink-dark">{user?.name}</p>
             <p className="text-sm text-ink-muted dark:text-ink-dark-muted">{user?.email}</p>
+            <div className="mt-2.5">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  user?.role === 'FACULTY_ADVISOR'
+                    ? 'border border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/50 dark:text-purple-300'
+                    : user?.role === 'SUPER_ADMIN'
+                    ? 'border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-300'
+                    : 'border border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300'
+                }`}
+              >
+                {user?.role === 'FACULTY_ADVISOR'
+                  ? '🎓 Faculty Advisor (Academic Staff)'
+                  : user?.role === 'SUPER_ADMIN'
+                  ? '🛡️ Super Administrator'
+                  : '👤 Student Member'}
+              </span>
+            </div>
 
             <div className="mt-5 border-t border-border pt-4 dark:border-border-dark">
               <label className="mb-1 block text-sm font-medium text-ink dark:text-ink-dark" htmlFor="profile-picture">
@@ -207,25 +227,47 @@ function ProfilePage() {
                 >
                   Current password
                 </label>
-                <input
-                  id="current-password"
-                  type="password"
-                  className={inputClass}
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                />
+                <div className="relative">
+                  <input
+                    id="current-password"
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    className={`${inputClass} pr-10`}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted transition-fast hover:text-ink dark:text-ink-dark-muted dark:hover:text-ink-dark focus:outline-none"
+                    aria-label={showCurrentPassword ? 'Hide' : 'Show'}
+                    title={showCurrentPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-ink dark:text-ink-dark" htmlFor="new-password">
                   New password
                 </label>
-                <input
-                  id="new-password"
-                  type="password"
-                  className={inputClass}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
+                <div className="relative">
+                  <input
+                    id="new-password"
+                    type={showNewPassword ? 'text' : 'password'}
+                    className={`${inputClass} pr-10`}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted transition-fast hover:text-ink dark:text-ink-dark-muted dark:hover:text-ink-dark focus:outline-none"
+                    aria-label={showNewPassword ? 'Hide' : 'Show'}
+                    title={showNewPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
             {passwordError && <p className="text-sm text-danger">{passwordError}</p>}

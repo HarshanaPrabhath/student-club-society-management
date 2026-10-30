@@ -9,6 +9,7 @@ const FOCUSABLE =
  * it, and focus returns to whatever opened it when it closes.
  */
 function Modal({
+  isOpen = true,
   title,
   onClose,
   children,
@@ -25,6 +26,7 @@ function Modal({
   })
 
   useEffect(() => {
+    if (!isOpen) return
     const opener = document.activeElement
     const dialog = dialogRef.current
     const first = dialog?.querySelector('input, select, textarea') || dialog?.querySelector(FOCUSABLE)
@@ -32,7 +34,7 @@ function Modal({
 
     function handleKey(e) {
       if (e.key === 'Escape') {
-        onCloseRef.current()
+        onCloseRef.current?.()
         return
       }
       if (e.key !== 'Tab' || !dialog) return
@@ -56,7 +58,9 @@ function Modal({
       document.removeEventListener('keydown', handleKey)
       if (opener instanceof HTMLElement && document.contains(opener)) opener.focus()
     }
-  }, [])
+  }, [isOpen])
+
+  if (!isOpen) return null
 
   return (
     <div
