@@ -770,26 +770,26 @@ function DashboardPage() {
                 </div>
 
                 {clubsList.length > 0 ? (
-                  <div className="mt-3.5 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="mt-3.5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {clubsList.slice(0, 4).map((club) => {
                       const gradient = getClubCoverGradient(club.category)
                       return (
                         <div
                           key={club.id}
-                          className="flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-xs transition-all hover:shadow-md dark:border-slate-800/80 dark:bg-[#181b24]"
+                          className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs transition-all duration-200 hover:border-slate-300 hover:shadow-md dark:border-slate-800/80 dark:bg-[#181b24] dark:hover:border-slate-700"
                         >
-                          <div className="relative h-28 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                          <div className="relative h-32 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
                             {club.logoB64 ? (
                               <img
                                 src={club.logoB64}
                                 alt={club.name}
-                                className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                               />
                             ) : (
                               <div
                                 className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${gradient} p-4 text-white shadow-inner`}
                               >
-                                <span className="text-xl font-extrabold tracking-wider drop-shadow-xs">
+                                <span className="text-2xl font-extrabold tracking-wider drop-shadow-xs">
                                   {club.name
                                     .split(' ')
                                     .map((w) => w[0])
@@ -799,27 +799,35 @@ function DashboardPage() {
                                 </span>
                               </div>
                             )}
+
+                            {/* Floating category pill on cover */}
+                            <span className="absolute left-2.5 top-2.5 inline-flex items-center rounded-md bg-black/45 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-white backdrop-blur-md shadow-xs">
+                              {club.category || 'General'}
+                            </span>
+
+                            {/* Floating oversight pill on cover */}
+                            <span className="absolute right-2.5 top-2.5 inline-flex items-center rounded-full bg-purple-600/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-xs backdrop-blur-md">
+                              Oversight
+                            </span>
                           </div>
-                          <div className="flex flex-1 flex-col justify-between p-3.5">
+                          <div className="flex flex-1 flex-col justify-between p-4">
                             <div>
-                              <h3 className="truncate text-xs font-bold text-slate-900 dark:text-white" title={club.name}>
+                              <h3 className="truncate text-sm font-bold text-slate-900 transition-colors group-hover:text-purple-600 dark:text-white dark:group-hover:text-purple-400" title={club.name}>
                                 {club.name}
                               </h3>
-                              <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
-                                Oversight Active
+                              <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                <Users className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                                <span>{club.memberCount || 0} Member{club.memberCount === 1 ? '' : 's'}</span>
                               </p>
                             </div>
 
-                            <div className="mt-3.5 flex items-center justify-between border-t border-slate-100 pt-2.5 dark:border-slate-800/80">
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300 truncate max-w-[90px]">
-                                {club.category || 'General'}
-                              </span>
+                            <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800/80">
                               <button
                                 type="button"
                                 onClick={() => navigate(`/clubs/${club.id}`)}
-                                className="rounded-md border border-slate-200 px-2.5 py-0.5 text-[11px] font-medium text-slate-700 transition-all hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                                className="w-full inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                               >
-                                View
+                                View Club
                               </button>
                             </div>
                           </div>
@@ -1027,24 +1035,24 @@ function DashboardPage() {
                 </div>
 
                 {clubsList.length > 0 ? (
-                  <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {clubsList.slice(0, 4).map((club) => {
                       const gradient = getClubCoverGradient(club.category)
                       return (
                         <div
                           key={club.id}
-                          className="flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-xs transition-all hover:shadow-md dark:border-slate-800/80 dark:bg-[#181b24]"
+                          className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs transition-all duration-200 hover:border-slate-300 hover:shadow-md dark:border-slate-800/80 dark:bg-[#181b24] dark:hover:border-slate-700"
                         >
-                          <div className="relative h-28 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                          <div className="relative h-32 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
                             {club.logoB64 ? (
                               <img
                                 src={club.logoB64}
                                 alt={club.name}
-                                className="h-full w-full object-cover"
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                               />
                             ) : (
                               <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${gradient} p-4 text-white shadow-inner`}>
-                                <span className="text-xl font-extrabold tracking-wider drop-shadow-xs">
+                                <span className="text-2xl font-extrabold tracking-wider drop-shadow-xs">
                                   {club.name
                                     .split(' ')
                                     .map((w) => w[0])
@@ -1054,47 +1062,62 @@ function DashboardPage() {
                                 </span>
                               </div>
                             )}
+
+                            {/* Floating category pill on cover */}
+                            <span className="absolute left-2.5 top-2.5 inline-flex items-center rounded-md bg-black/45 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-white backdrop-blur-md shadow-xs">
+                              {club.category || 'General'}
+                            </span>
+
+                            {/* Floating status pill on cover */}
+                            <span
+                              className={`absolute right-2.5 top-2.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-xs backdrop-blur-md ${
+                                club.status === 'APPROVED'
+                                  ? 'bg-emerald-600/90 text-white'
+                                  : club.status === 'PENDING'
+                                    ? 'bg-amber-500/90 text-white'
+                                    : 'bg-slate-800/80 text-white'
+                              }`}
+                            >
+                              {club.status || 'Active'}
+                            </span>
                           </div>
-                          <div className="flex flex-1 flex-col justify-between p-3.5">
+
+                          <div className="flex flex-1 flex-col justify-between p-4">
                             <div>
-                              <h3 className="truncate text-xs font-bold text-slate-900 dark:text-white" title={club.name}>
+                              <h3 className="truncate text-sm font-bold text-slate-900 transition-colors group-hover:text-[#6366f1] dark:text-white dark:group-hover:text-indigo-400" title={club.name}>
                                 {club.name}
                               </h3>
-                              <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
-                                {club.memberCount || 0} members · {club.status || 'Active'}
+                              <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                <Users className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                                <span>{club.memberCount || 0} Member{club.memberCount === 1 ? '' : 's'}</span>
                               </p>
                             </div>
 
-                            <div className="mt-3.5 flex items-center justify-between border-t border-slate-100 pt-2.5 dark:border-slate-800/80">
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300 truncate max-w-[80px]">
-                                {club.category || 'General'}
-                              </span>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/clubs/${club.id}`)}
-                                  className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700 transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                                >
-                                  Manage
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingClub(club)
-                                    setShowCreateClubModal(true)
-                                  }}
-                                  className="rounded-md border border-indigo-200 bg-indigo-50/50 px-2 py-0.5 text-[11px] font-semibold text-[#6366f1] transition-all hover:bg-indigo-100 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-300"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteClub(club)}
-                                  className="rounded-md border border-red-200 bg-red-50/50 px-2 py-0.5 text-[11px] font-semibold text-red-600 transition-all hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400"
-                                >
-                                  Delete
-                                </button>
-                              </div>
+                            <div className="mt-4 grid grid-cols-3 gap-1.5 border-t border-slate-100 pt-3 dark:border-slate-800/80">
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/clubs/${club.id}`)}
+                                className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                              >
+                                Manage
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingClub(club)
+                                  setShowCreateClubModal(true)
+                                }}
+                                className="inline-flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50/70 py-1.5 text-xs font-semibold text-[#6366f1] shadow-2xs transition-all hover:bg-indigo-100 hover:border-indigo-300 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/60"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteClub(club)}
+                                className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50/70 py-1.5 text-xs font-semibold text-red-600 shadow-2xs transition-all hover:bg-red-100 hover:border-red-300 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-900/60"
+                              >
+                                Delete
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1135,26 +1158,26 @@ function DashboardPage() {
                 </div>
 
                 {registeredClubCards.length > 0 ? (
-                  <div className="mt-3.5 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="mt-3.5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {registeredClubCards.map((club) => {
                       const gradient = getClubCoverGradient(club.category)
                       return (
                         <div
                           key={club.id}
-                          className="flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-xs transition-all hover:shadow-md dark:border-slate-800/80 dark:bg-[#181b24]"
+                          className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs transition-all duration-200 hover:border-slate-300 hover:shadow-md dark:border-slate-800/80 dark:bg-[#181b24] dark:hover:border-slate-700"
                         >
-                          <div className="relative h-28 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                          <div className="relative h-32 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
                             {club.logoB64 ? (
                               <img
                                 src={club.logoB64}
                                 alt={club.name}
-                                className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                               />
                             ) : (
                               <div
                                 className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${gradient} p-4 text-white shadow-inner`}
                               >
-                                <span className="text-xl font-extrabold tracking-wider drop-shadow-xs">
+                                <span className="text-2xl font-extrabold tracking-wider drop-shadow-xs">
                                   {club.name
                                     .split(' ')
                                     .map((w) => w[0])
@@ -1164,27 +1187,35 @@ function DashboardPage() {
                                 </span>
                               </div>
                             )}
+
+                            {/* Floating category pill on cover */}
+                            <span className="absolute left-2.5 top-2.5 inline-flex items-center rounded-md bg-black/45 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-white backdrop-blur-md shadow-xs">
+                              {club.category || 'General'}
+                            </span>
+
+                            {/* Floating membership badge on cover */}
+                            <span className="absolute right-2.5 top-2.5 inline-flex items-center rounded-full bg-indigo-600/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-xs backdrop-blur-md">
+                              {club.badge || 'Member'}
+                            </span>
                           </div>
-                          <div className="flex flex-1 flex-col justify-between p-3.5">
+                          <div className="flex flex-1 flex-col justify-between p-4">
                             <div>
-                              <h3 className="truncate text-xs font-bold text-slate-900 dark:text-white" title={club.name}>
+                              <h3 className="truncate text-sm font-bold text-slate-900 transition-colors group-hover:text-[#6366f1] dark:text-white dark:group-hover:text-indigo-400" title={club.name}>
                                 {club.name}
                               </h3>
-                              <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
-                                {club.badge}
+                              <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                <Users className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                                <span>{club.memberCount || 0} Member{club.memberCount === 1 ? '' : 's'}</span>
                               </p>
                             </div>
 
-                            <div className="mt-3.5 flex items-center justify-between border-t border-slate-100 pt-2.5 dark:border-slate-800/80">
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300 truncate max-w-[90px]">
-                                {club.category}
-                              </span>
+                            <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800/80">
                               <button
                                 type="button"
                                 onClick={() => navigate(`/clubs/${club.id}`)}
-                                className="rounded-md border border-slate-200 px-2.5 py-0.5 text-[11px] font-medium text-slate-700 transition-all hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                                className="w-full inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                               >
-                                View
+                                View Club
                               </button>
                             </div>
                           </div>
