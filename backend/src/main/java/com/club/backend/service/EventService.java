@@ -15,6 +15,8 @@ import java.util.UUID;
 
 import javax.imageio.ImageIO;
 
+import jakarta.persistence.EntityManager;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -76,6 +78,7 @@ public class EventService {
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
     private final CheckInTokenService checkInTokenService;
+    private final EntityManager entityManager;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -336,6 +339,34 @@ public class EventService {
         }
     }
 
+    public void deleteEvent(UUID eventId, UserPrincipal principal) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> ApiException.notFound("Event not found"));
+
+        requireOfficer(event.getClub().getId(), principal, "Only club officers or administrators can delete events");
+
+        if (!event.isCancelled()) {
+            cancelInternal(event, "Event deleted by administrator");
+        }
+
+        deleteNative("DELETE FROM attendance WHERE event_id = :eventId", eventId);
+        deleteNative("DELETE FROM event_feedback WHERE event_id = :eventId", eventId);
+        deleteNative("DELETE FROM event_comments WHERE event_id = :eventId", eventId);
+        deleteNative("DELETE FROM rsvps WHERE event_id = :eventId", eventId);
+        deleteNative("UPDATE club_expenses SET event_id = NULL WHERE event_id = :eventId", eventId);
+
+        eventRepository.delete(event);
+
+        userRepository.findById(principal.getId()).ifPresent(actor ->
+                auditLogService.log(actor, "DELETE_EVENT", "EVENT", event.getId(), event.getTitle()));
+    }
+
+    private void deleteNative(String sql, UUID eventId) {
+        entityManager.createNativeQuery(sql)
+                .setParameter("eventId", eventId)
+                .executeUpdate();
+    }
+
     private boolean hasSignups(Event event) {
         return rsvpRepository.countByEventIdAndStatus(event.getId(), RsvpStatus.GOING) > 0
                 || rsvpRepository.countByEventIdAndStatus(event.getId(), RsvpStatus.WAITLISTED) > 0
@@ -359,6 +390,9 @@ public class EventService {
     }
 
     private void requireOfficer(UUID clubId, UserPrincipal principal, String message) {
+        if ("SUPER_ADMIN".equals(principal.getRole()) || "FACULTY_ADVISOR".equals(principal.getRole())) {
+            return;
+        }
         Membership membership = membershipRepository.findByUserIdAndClubId(principal.getId(), clubId)
                 .orElseThrow(() -> ApiException.forbidden(message));
 

@@ -28,7 +28,6 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/admin/users")
-@PreAuthorize("hasRole('SUPER_ADMIN')")
 @RequiredArgsConstructor
 public class UserAdminController {
 
@@ -37,21 +36,24 @@ public class UserAdminController {
     private final UserAdminService userAdminService;
 
     @GetMapping
-    public ResponseEntity<List<UserAdminResponse>> list(@RequestParam(required = false) String q,
+    public ResponseEntity<List<UserAdminResponse>> list(@AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String q,
             @RequestParam(required = false) Role role, @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
         var pageable = PageSupport.pageable(page, size == null ? DEFAULT_PAGE_SIZE : size,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
-        return PageSupport.respond(userAdminService.search(q, role, pageable));
+        return PageSupport.respond(userAdminService.search(principal, q, role, pageable));
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<UserAdminResponse> create(@AuthenticationPrincipal UserPrincipal principal,
             @RequestBody CreateUserRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(userAdminService.create(principal, request));
     }
 
     @PutMapping("/{userId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<UserAdminResponse> update(@AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID userId, @RequestBody UpdateUserRequest request) {
         return ResponseEntity.ok(userAdminService.update(principal, userId, request));

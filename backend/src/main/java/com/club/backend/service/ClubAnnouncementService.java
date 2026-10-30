@@ -15,6 +15,7 @@ import com.club.backend.entity.ClubAnnouncement;
 import com.club.backend.entity.Membership;
 import com.club.backend.entity.MembershipPosition;
 import com.club.backend.entity.MembershipStatus;
+import com.club.backend.entity.Role;
 import com.club.backend.entity.User;
 import com.club.backend.repository.ClubAnnouncementRepository;
 import com.club.backend.repository.ClubRepository;
@@ -53,10 +54,14 @@ public class ClubAnnouncementService {
         User author = userRepository.findById(principal.getId())
                 .orElseThrow(() -> ApiException.notFound("User not found"));
 
-        Membership membership = membershipRepository.findByUserIdAndClubId(author.getId(), clubId)
-                .orElseThrow(() -> ApiException.forbidden("Only club officers can post announcements"));
-
-        if (membership.getStatus() != MembershipStatus.APPROVED || !OFFICER_POSITIONS.contains(membership.getPosition())) {
+        boolean isOfficer = author.getRole() == Role.SUPER_ADMIN || author.getRole() == Role.FACULTY_ADVISOR;
+        if (!isOfficer) {
+            Membership membership = membershipRepository.findByUserIdAndClubId(author.getId(), clubId).orElse(null);
+            if (membership != null && membership.getStatus() == MembershipStatus.APPROVED && OFFICER_POSITIONS.contains(membership.getPosition())) {
+                isOfficer = true;
+            }
+        }
+        if (!isOfficer) {
             throw ApiException.forbidden("Only club officers can post announcements");
         }
 
@@ -97,7 +102,8 @@ public class ClubAnnouncementService {
                 .map(m -> m.getPosition() == MembershipPosition.PRESIDENT)
                 .orElse(false);
 
-        if (!isAuthor && !isPresident) {
+        boolean isSuperAdmin = principal.getRole() != null && principal.getRole().contains("SUPER_ADMIN");
+        if (!isAuthor && !isPresident && !isSuperAdmin) {
             throw ApiException.forbidden("Only the author or the Club Admin can delete this announcement");
         }
 

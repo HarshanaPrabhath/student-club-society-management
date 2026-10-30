@@ -13,14 +13,20 @@ import com.club.backend.config.ApiException;
 import com.club.backend.dto.CreateUserRequest;
 import com.club.backend.dto.UpdateUserRequest;
 import com.club.backend.dto.UserAdminResponse;
+import com.club.backend.entity.MembershipPosition;
+import com.club.backend.entity.MembershipStatus;
 import com.club.backend.entity.Role;
 import com.club.backend.entity.User;
+import com.club.backend.repository.MembershipRepository;
 import com.club.backend.repository.UserRepository;
 import com.club.backend.security.UserPrincipal;
 
 import lombok.RequiredArgsConstructor;
 
-/** Super Admin user management: list, create, edit, change role, deactivate/reactivate accounts. */
+/**
+ * Super Admin & Club President user management: list, edit, and activate/deactivate accounts.
+ * Super Admins can manage all roles; Club Presidents can activate/deactivate student member accounts.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -30,8 +36,19 @@ public class UserAdminService {
     private static final int MIN_PASSWORD_LENGTH = 8;
 
     private final UserRepository userRepository;
+    private final MembershipRepository membershipRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
+
+    public boolean isSuperAdminOrPresident(UserPrincipal principal) {
+        if (principal == null) return false;
+        if ("SUPER_ADMIN".equals(principal.getRole())) {
+            return true;
+        }
+        if (membershipRepository == null) return false;
+        return membershipRepository.findByUserId(principal.getId()).stream()
+                .anyMatch(m -> m.getStatus() == MembershipStatus.APPROVED && m.getPosition() == MembershipPosition.PRESIDENT);
+    }
 
     @Transactional(readOnly = true)
     public Page<UserAdminResponse> search(String q, Role role, Pageable pageable) {
@@ -39,7 +56,31 @@ public class UserAdminService {
         return userRepository.search(role, pattern, pageable).map(UserAdminResponse::from);
     }
 
+    @Transactional(readOnly = true)
+    public Page<UserAdminResponse> search(UserPrincipal principal, String q, Role role, Pageable pageable) {
+        if (!isSuperAdminOrPresident(principal)) {
+            throw ApiException.forbidden("Only Administrators and Club Presidents can view user directories");
+        }
+        if (!"SUPER_ADMIN".equals(principal.getRole())) {
+            var presidentClubIds = membershipRepository.findByUserId(principal.getId()).stream()
+                    .filter(m -> m.getStatus() == MembershipStatus.APPROVED && m.getPosition() == MembershipPosition.PRESIDENT)
+                    .map(m -> m.getClub().getId())
+                    .toList();
+            if (presidentClubIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+            String pattern = isBlank(q) ? null : "%" + q.trim().toLowerCase() + "%";
+            // Presidents only see students who are members of their own club(s), no other roles
+            return userRepository.searchClubMembers(presidentClubIds, MembershipStatus.APPROVED, Role.STUDENT, pattern, pageable)
+                    .map(UserAdminResponse::from);
+        }
+        return search(q, role, pageable);
+    }
+
     public UserAdminResponse create(UserPrincipal principal, CreateUserRequest request) {
+        if (!"SUPER_ADMIN".equals(principal.getRole())) {
+            throw ApiException.forbidden("Only Administrators can create accounts directly");
+        }
         if (isBlank(request.name())) {
             throw ApiException.badRequest("Name is required");
         }
@@ -64,6 +105,9 @@ public class UserAdminService {
     }
 
     public UserAdminResponse update(UserPrincipal principal, UUID userId, UpdateUserRequest request) {
+        if (!"SUPER_ADMIN".equals(principal.getRole())) {
+            throw ApiException.forbidden("Only Administrators can edit user accounts and roles");
+        }
         User user = find(userId);
         StringBuilder changes = new StringBuilder();
 
@@ -101,6 +145,9 @@ public class UserAdminService {
     }
 
     public UserAdminResponse setActive(UserPrincipal principal, UUID userId, boolean active) {
+        if (!isSuperAdminOrPresident(principal)) {
+            throw ApiException.forbidden("Only Administrators and Club Presidents can activate or deactivate accounts");
+        }
         User user = find(userId);
         if (user.isActive() == active) {
             return UserAdminResponse.from(user);
@@ -111,6 +158,28 @@ public class UserAdminService {
             }
             if (user.getRole() == Role.SUPER_ADMIN) {
                 requireAnotherActiveSuperAdmin(user, "deactivate");
+            }
+        }
+        // Presidents can only activate or deactivate student accounts belonging to their own clubs, and cannot deactivate another Club President
+        if (!"SUPER_ADMIN".equals(principal.getRole())) {
+            if (user.getRole() != Role.STUDENT) {
+                throw ApiException.forbidden("Club Presidents can only activate or deactivate student accounts");
+            }
+            if (membershipRepository != null) {
+                var presidentClubIds = membershipRepository.findByUserId(principal.getId()).stream()
+                        .filter(m -> m.getStatus() == MembershipStatus.APPROVED && m.getPosition() == MembershipPosition.PRESIDENT)
+                        .map(m -> m.getClub().getId())
+                        .toList();
+                boolean belongsToPresidentClub = membershipRepository.findByUserId(user.getId()).stream()
+                        .anyMatch(m -> m.getStatus() == MembershipStatus.APPROVED && presidentClubIds.contains(m.getClub().getId()));
+                if (!belongsToPresidentClub) {
+                    throw ApiException.forbidden("Club Presidents can only activate or deactivate members of their own club");
+                }
+                boolean isOtherPresident = membershipRepository.findByUserId(user.getId()).stream()
+                        .anyMatch(m -> m.getStatus() == MembershipStatus.APPROVED && m.getPosition() == MembershipPosition.PRESIDENT);
+                if (isOtherPresident) {
+                    throw ApiException.forbidden("Club Presidents cannot deactivate another Club President");
+                }
             }
         }
         user.setActive(active);

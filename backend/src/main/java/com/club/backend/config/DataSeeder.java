@@ -2,6 +2,7 @@ package com.club.backend.config;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
 import org.springframework.boot.CommandLineRunner;
@@ -14,6 +15,7 @@ import com.club.backend.entity.Attendance;
 import com.club.backend.entity.AttendanceMethod;
 import com.club.backend.entity.Club;
 import com.club.backend.entity.ClubAnnouncement;
+import com.club.backend.entity.ClubExpense;
 import com.club.backend.entity.ClubStatus;
 import com.club.backend.entity.Event;
 import com.club.backend.entity.EventApprovalStatus;
@@ -27,6 +29,7 @@ import com.club.backend.entity.RsvpStatus;
 import com.club.backend.entity.User;
 import com.club.backend.repository.AttendanceRepository;
 import com.club.backend.repository.ClubAnnouncementRepository;
+import com.club.backend.repository.ClubExpenseRepository;
 import com.club.backend.repository.ClubRepository;
 import com.club.backend.repository.EventRepository;
 import com.club.backend.repository.MembershipRepository;
@@ -35,7 +38,7 @@ import com.club.backend.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
-/** Loads demo/seed data for a viva presentation — only runs against an empty database. */
+/** Loads demo/seed data for a viva presentation. */
 @Component
 @Order(1)
 @ConditionalOnProperty(name = "app.seed-demo-data", havingValue = "true")
@@ -51,11 +54,13 @@ public class DataSeeder implements CommandLineRunner {
     private final RsvpRepository rsvpRepository;
     private final AttendanceRepository attendanceRepository;
     private final ClubAnnouncementRepository announcementRepository;
+    private final ClubExpenseRepository expenseRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
         if (userRepository.count() > 0) {
+            seedExpensesIfMissing();
             return;
         }
 
@@ -74,6 +79,42 @@ public class DataSeeder implements CommandLineRunner {
         makeMember(carol, techClub, MembershipPosition.MEMBER);
         makeMember(dave, artClub, MembershipPosition.PRESIDENT);
         makeMember(alice, artClub, MembershipPosition.MEMBER);
+
+        // Make Bob a pending applicant in artClub
+        membershipRepository.save(Membership.builder()
+                .user(bob)
+                .club(artClub)
+                .position(MembershipPosition.MEMBER)
+                .status(MembershipStatus.PENDING)
+                .build());
+
+        // Initial expenses
+        expenseRepository.save(ClubExpense.builder()
+                .club(artClub)
+                .loggedBy(dave)
+                .description("Studio Light Soft Boxes & Tripods")
+                .amount(new BigDecimal("1040.00"))
+                .category("Equipment & Gear")
+                .expenseDate(LocalDate.now().minusDays(7))
+                .build());
+
+        expenseRepository.save(ClubExpense.builder()
+                .club(artClub)
+                .loggedBy(dave)
+                .description("Canvas Rolls & Acrylic Paint Supplies")
+                .amount(new BigDecimal("1450.00"))
+                .category("Marketing")
+                .expenseDate(LocalDate.now().minusDays(5))
+                .build());
+
+        expenseRepository.save(ClubExpense.builder()
+                .club(artClub)
+                .loggedBy(dave)
+                .description("Exhibition Opening Night Refreshments")
+                .amount(new BigDecimal("750.00"))
+                .category("Food & Refreshments")
+                .expenseDate(LocalDate.now().minusDays(3))
+                .build());
 
         announcementRepository.save(ClubAnnouncement.builder()
                 .club(techClub)
@@ -101,6 +142,51 @@ public class DataSeeder implements CommandLineRunner {
         System.out.println("  Faculty Advisor:  " + advisor.getEmail());
         System.out.println("  Student (Pres.):  " + alice.getEmail());
         System.out.println("  Student:          " + bob.getEmail());
+    }
+
+    private void seedExpensesIfMissing() {
+        if (expenseRepository.count() > 0) {
+            return;
+        }
+        Club club = clubRepository.findAll().stream().findFirst().orElse(null);
+        if (club == null) {
+            return;
+        }
+        User president = membershipRepository.findByClubIdAndStatus(club.getId(), MembershipStatus.APPROVED).stream()
+                .filter(m -> m.getPosition() == MembershipPosition.PRESIDENT)
+                .map(Membership::getUser)
+                .findFirst()
+                .orElseGet(() -> userRepository.findAll().stream().findFirst().orElse(null));
+        if (president == null) {
+            return;
+        }
+
+        expenseRepository.save(ClubExpense.builder()
+                .club(club)
+                .loggedBy(president)
+                .description("Studio Light Soft Boxes & Tripods")
+                .amount(new BigDecimal("1040.00"))
+                .category("Equipment & Gear")
+                .expenseDate(LocalDate.now().minusDays(7))
+                .build());
+
+        expenseRepository.save(ClubExpense.builder()
+                .club(club)
+                .loggedBy(president)
+                .description("Canvas Rolls & Acrylic Paint Supplies")
+                .amount(new BigDecimal("1450.00"))
+                .category("Marketing")
+                .expenseDate(LocalDate.now().minusDays(5))
+                .build());
+
+        expenseRepository.save(ClubExpense.builder()
+                .club(club)
+                .loggedBy(president)
+                .description("Exhibition Opening Night Refreshments")
+                .amount(new BigDecimal("750.00"))
+                .category("Food & Refreshments")
+                .expenseDate(LocalDate.now().minusDays(3))
+                .build());
     }
 
     private User createUser(String name, String email, Role role) {

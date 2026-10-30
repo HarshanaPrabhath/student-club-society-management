@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,6 +19,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import com.club.backend.entity.Club;
+import com.club.backend.entity.Membership;
+import com.club.backend.entity.MembershipPosition;
+import com.club.backend.entity.MembershipStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.club.backend.config.ApiException;
@@ -34,6 +41,8 @@ class UserAdminServiceTest {
 
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private com.club.backend.repository.MembershipRepository membershipRepository;
     @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
@@ -175,6 +184,61 @@ class UserAdminServiceTest {
         assertThatThrownBy(() -> service.setActive(adminPrincipal, otherAdmin.getId(), false))
                 .isInstanceOf(ApiException.class).hasMessageContaining("last active Super Admin");
         assertThat(otherAdmin.isActive()).isTrue();
+    }
+
+    @Test
+    void search_asPresident_onlySearchesClubMembersWithRoleStudent() {
+        User pres = User.builder().id(UUID.randomUUID()).name("Pres").email("p@example.com").role(Role.STUDENT).build();
+        UserPrincipal presPrincipal = new UserPrincipal(pres);
+        Club club = Club.builder().id(UUID.randomUUID()).name("Club A").build();
+        Membership presM = Membership.builder().id(UUID.randomUUID()).user(pres).club(club)
+                .status(MembershipStatus.APPROVED).position(MembershipPosition.PRESIDENT).build();
+
+        when(membershipRepository.findByUserId(pres.getId())).thenReturn(List.of(presM));
+        when(userRepository.searchClubMembers(eq(List.of(club.getId())), eq(MembershipStatus.APPROVED), eq(Role.STUDENT), eq("%sam%"), any()))
+                .thenReturn(new PageImpl<>(List.of(student)));
+
+        var result = service.search(presPrincipal, "sam", null, PageRequest.of(0, 10));
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).name()).isEqualTo("Sam");
+    }
+
+    @Test
+    void deactivate_asPresident_rejectsUserOutsideClub() {
+        User pres = User.builder().id(UUID.randomUUID()).name("Pres").email("p@example.com").role(Role.STUDENT).build();
+        UserPrincipal presPrincipal = new UserPrincipal(pres);
+        Club club = Club.builder().id(UUID.randomUUID()).name("Club A").build();
+        Membership presM = Membership.builder().id(UUID.randomUUID()).user(pres).club(club)
+                .status(MembershipStatus.APPROVED).position(MembershipPosition.PRESIDENT).build();
+
+        when(membershipRepository.findByUserId(pres.getId())).thenReturn(List.of(presM));
+        when(userRepository.findById(student.getId())).thenReturn(Optional.of(student));
+        when(membershipRepository.findByUserId(student.getId())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.setActive(presPrincipal, student.getId(), false))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("members of their own club");
+    }
+
+    @Test
+    void deactivate_asPresident_succeedsForMemberInClub() {
+        User pres = User.builder().id(UUID.randomUUID()).name("Pres").email("p@example.com").role(Role.STUDENT).build();
+        UserPrincipal presPrincipal = new UserPrincipal(pres);
+        Club club = Club.builder().id(UUID.randomUUID()).name("Club A").build();
+        Membership presM = Membership.builder().id(UUID.randomUUID()).user(pres).club(club)
+                .status(MembershipStatus.APPROVED).position(MembershipPosition.PRESIDENT).build();
+        Membership studentM = Membership.builder().id(UUID.randomUUID()).user(student).club(club)
+                .status(MembershipStatus.APPROVED).position(MembershipPosition.MEMBER).build();
+
+        when(membershipRepository.findByUserId(pres.getId())).thenReturn(List.of(presM));
+        when(userRepository.findById(pres.getId())).thenReturn(Optional.of(pres));
+        when(userRepository.findById(student.getId())).thenReturn(Optional.of(student));
+        when(membershipRepository.findByUserId(student.getId())).thenReturn(List.of(studentM));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var res = service.setActive(presPrincipal, student.getId(), false);
+        assertThat(res.active()).isFalse();
+        verify(auditLogService).log(eq(pres), eq("DEACTIVATE_USER"), eq("USER"), eq(student.getId()), anyString());
     }
 
     @Test

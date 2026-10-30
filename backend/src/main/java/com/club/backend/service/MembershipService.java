@@ -22,6 +22,7 @@ import com.club.backend.entity.Membership;
 import com.club.backend.entity.MembershipPosition;
 import com.club.backend.entity.MembershipStatus;
 import com.club.backend.entity.PaymentType;
+import com.club.backend.entity.Role;
 import com.club.backend.entity.User;
 import com.club.backend.repository.ClubRepository;
 import com.club.backend.repository.MembershipRepository;
@@ -54,6 +55,12 @@ public class MembershipService {
         User user = userRepository.findById(principal.getId())
                 .orElseThrow(() -> ApiException.notFound("User not found"));
         emailVerificationPolicy.requireVerified(user);
+
+        if (user.getRole() == Role.FACULTY_ADVISOR || user.getRole() == Role.SUPER_ADMIN) {
+            throw ApiException.badRequest(user.getRole() == Role.SUPER_ADMIN
+                    ? "Super Admins manage the platform and cannot join clubs as members"
+                    : "Faculty Advisors oversee clubs and societies and cannot join as student members");
+        }
 
         Optional<Membership> existing = membershipRepository.findByUserIdAndClubId(user.getId(), clubId);
         // A rejected request can be re-submitted; anything else (pending / approved) is a duplicate.
@@ -151,6 +158,9 @@ public class MembershipService {
 
     /** Throws forbidden unless the given user is the approved PRESIDENT of the given club. */
     private void requirePresident(UUID clubId, UserPrincipal principal) {
+        if ("SUPER_ADMIN".equals(principal.getRole())) {
+            return;
+        }
         Membership requester = membershipRepository.findByUserIdAndClubId(principal.getId(), clubId)
                 .orElseThrow(() -> ApiException.forbidden("Only the Club Admin can perform this action"));
 
@@ -164,6 +174,9 @@ public class MembershipService {
      * The Secretary owns membership recordkeeping (rosters/imports) but not governance (approvals/positions).
      */
     private void requirePresidentOrSecretary(UUID clubId, UserPrincipal principal) {
+        if ("SUPER_ADMIN".equals(principal.getRole())) {
+            return;
+        }
         Membership requester = membershipRepository.findByUserIdAndClubId(principal.getId(), clubId)
                 .orElseThrow(() -> ApiException.forbidden("Only the Club Admin or Secretary can perform this action"));
 
@@ -194,6 +207,10 @@ public class MembershipService {
             User user = userRepository.findByEmail(email).orElse(null);
             if (user == null) {
                 skipped.add(email + " (no account)");
+                continue;
+            }
+            if (user.getRole() == Role.SUPER_ADMIN || user.getRole() == Role.FACULTY_ADVISOR) {
+                skipped.add(email + " (administrators cannot join clubs)");
                 continue;
             }
             if (membershipRepository.findByUserIdAndClubId(user.getId(), clubId).isPresent()) {

@@ -134,7 +134,7 @@ public class ClubExpenseService {
         User viewer = userRepository.findById(principal.getId())
                 .orElseThrow(() -> ApiException.notFound("User not found"));
 
-        boolean isUniversityStaff = viewer.getRole() == Role.SUPER_ADMIN || viewer.getRole() == Role.FACULTY_ADVISOR;
+        boolean isUniversityStaff = viewer.getRole() == Role.SUPER_ADMIN;
         boolean isClubOfficer = membershipRepository.findByUserIdAndClubId(viewer.getId(), clubId)
                 .filter(m -> m.getStatus() == MembershipStatus.APPROVED)
                 .map(m -> LEDGER_VIEWER_POSITIONS.contains(m.getPosition()))
@@ -270,6 +270,10 @@ public class ClubExpenseService {
     }
 
     private void requireExpenseManager(UUID userId, UUID clubId, String message) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user != null && user.getRole() == Role.SUPER_ADMIN) {
+            return;
+        }
         Membership membership = membershipRepository.findByUserIdAndClubId(userId, clubId)
                 .orElseThrow(() -> ApiException.forbidden(message));
 
@@ -288,3 +292,4 @@ public class ClubExpenseService {
         return text.length() > 500 ? text.substring(0, 500) : text;
     }
 }
+

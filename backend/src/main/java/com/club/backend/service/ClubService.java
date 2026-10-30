@@ -113,11 +113,12 @@ public class ClubService {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> ApiException.notFound("Club not found"));
 
-        Membership membership = membershipRepository.findByUserIdAndClubId(principal.getId(), clubId)
-                .orElseThrow(() -> ApiException.forbidden("Only the Club Admin can edit the club"));
-
-        if (membership.getStatus() != MembershipStatus.APPROVED || membership.getPosition() != MembershipPosition.PRESIDENT) {
-            throw ApiException.forbidden("Only the Club Admin can edit the club");
+        boolean isStaff = "SUPER_ADMIN".equals(principal.getRole()) || "FACULTY_ADVISOR".equals(principal.getRole());
+        Membership membership = membershipRepository.findByUserIdAndClubId(principal.getId(), clubId).orElse(null);
+        if (!isStaff) {
+            if (membership == null || membership.getStatus() != MembershipStatus.APPROVED || membership.getPosition() != MembershipPosition.PRESIDENT) {
+                throw ApiException.forbidden("Only the Club Admin can edit the club");
+            }
         }
 
         InputLimits.requireImageSize(request.logoB64(), "club logo");
@@ -149,15 +150,19 @@ public class ClubService {
         if (identityChanged) {
             club.setStatus(ClubStatus.PENDING);
         }
-        club = clubRepository.save(club);
+        Club savedClub = clubRepository.save(club);
 
         if (identityChanged) {
-            notificationService.notify(membership.getUser(),
-                    "Your changes to \"" + club.getName() + "\" need Super Admin re-approval before going live again.");
-            notifySuperAdmins("\"" + club.getName() + "\" changed its name or category and needs re-approval.");
+            String updatedName = savedClub.getName();
+            User target = membership != null ? membership.getUser() : userRepository.findById(principal.getId()).orElse(null);
+            if (target != null) {
+                notificationService.notify(target,
+                        "Your changes to \"" + updatedName + "\" need Super Admin re-approval before going live again.");
+            }
+            notifySuperAdmins("\"" + updatedName + "\" changed its name or category and needs re-approval.");
         }
 
-        return ClubResponse.from(club);
+        return ClubResponse.from(savedClub);
     }
 
     public ClubResponse approveClub(UUID clubId, boolean approve, UserPrincipal principal) {
@@ -202,8 +207,8 @@ public class ClubService {
                 .filter(m -> m.getStatus() == MembershipStatus.APPROVED)
                 .map(m -> m.getPosition() == MembershipPosition.PRESIDENT)
                 .orElse(false);
-        if (actor.getRole() != Role.SUPER_ADMIN && !isPresident) {
-            throw ApiException.forbidden("Only the Club Admin or a Super Admin can archive a club");
+        if (actor.getRole() != Role.SUPER_ADMIN && actor.getRole() != Role.FACULTY_ADVISOR && !isPresident) {
+            throw ApiException.forbidden("Only the Club Admin or a Super Admin (or Faculty Advisor) can archive a club");
         }
         if (club.isArchived()) {
             throw ApiException.badRequest("This club is already archived");

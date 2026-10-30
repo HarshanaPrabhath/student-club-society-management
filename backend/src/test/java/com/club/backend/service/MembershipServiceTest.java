@@ -96,6 +96,26 @@ class MembershipServiceTest {
     // ---- joining
 
     @Test
+    void joinClub_facultyAdvisor_throws() {
+        User advisor = User.builder().id(UUID.randomUUID()).email("fa@example.com").name("Advisor").role(Role.FACULTY_ADVISOR).build();
+        when(userRepository.findById(advisor.getId())).thenReturn(Optional.of(advisor));
+
+        assertThatThrownBy(() -> membershipService.joinClub(club.getId(), new UserPrincipal(advisor)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Faculty Advisors oversee clubs");
+    }
+
+    @Test
+    void joinClub_superAdmin_throws() {
+        User admin = User.builder().id(UUID.randomUUID()).email("admin@example.com").name("SuperAdmin").role(Role.SUPER_ADMIN).build();
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        assertThatThrownBy(() -> membershipService.joinClub(club.getId(), new UserPrincipal(admin)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Super Admins manage the platform and cannot join clubs");
+    }
+
+    @Test
     void joinClub_alreadyMember_throws() {
         when(membershipRepository.findByUserIdAndClubId(user.getId(), club.getId()))
                 .thenReturn(Optional.of(memberOf(user, MembershipPosition.MEMBER, MembershipStatus.APPROVED)));
