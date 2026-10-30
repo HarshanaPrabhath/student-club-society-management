@@ -52,6 +52,19 @@ describe('BudgetFinancePage', () => {
     expect(await screen.findByText(/restricted to club treasurers & officers/i)).toBeInTheDocument()
   })
 
+  it('restricts access for Super Admin', async () => {
+    const axios = (await import('../../api/axios')).default
+    axios.get.mockImplementation(() => Promise.resolve({ data: [] }))
+
+    renderWithProviders(<BudgetFinancePage />, {
+      initialState: {
+        auth: { user: { id: 'sa-1', name: 'Super Admin', role: 'SUPER_ADMIN' } },
+      },
+    })
+
+    expect(await screen.findByText(/restricted to club treasurers & officers/i)).toBeInTheDocument()
+  })
+
   it('renders Budget & Finance dashboard with 4 metric cards and allocation donut for president', async () => {
     const axios = (await import('../../api/axios')).default
     axios.get.mockImplementation((url) => {

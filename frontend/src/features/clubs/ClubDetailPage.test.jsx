@@ -114,5 +114,9 @@ describe('ClubDetailPage', () => {
 
     // Verify Super Admin cannot join or see Join Club button
     expect(screen.queryByRole('button', { name: /join club/i })).not.toBeInTheDocument()
+
+    // Verify Super Admin does not have budget tab or fetch expense ledger
+    expect(screen.queryByRole('tab', { name: /^budget/i })).not.toBeInTheDocument()
+    expect(api.get).not.toHaveBeenCalledWith(expect.stringContaining('/expenses/ledger'))
   })
 })

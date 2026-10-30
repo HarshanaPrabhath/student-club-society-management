@@ -174,14 +174,7 @@ function BudgetFinancePage() {
   useEffect(() => {
     async function loadClubs() {
       try {
-        if (isSuperAdmin) {
-          const res = await api.get('/clubs')
-          const list = Array.isArray(res.data) ? res.data : []
-          setClubs(list)
-          if (!selectedClubId && list.length > 0) {
-            setSelectedClubId(list[0].id)
-          }
-        } else if (!isFacultyAdvisor) {
+        if (!isSuperAdmin && !isFacultyAdvisor) {
           const res = await api.get('/memberships/me')
           const memberships = Array.isArray(res.data) ? res.data : []
           const ledgerClubs = memberships.filter(
@@ -240,7 +233,7 @@ function BudgetFinancePage() {
   }, [selectedClubId, fiscalYear])
 
   // Permissions check
-  const canAccess = !isFacultyAdvisor && (isSuperAdmin || clubs.length > 0)
+  const canAccess = !isFacultyAdvisor && !isSuperAdmin && clubs.length > 0
 
   // Real computed metrics from backend data
   const totalAllocatedBudget = useMemo(() => {
@@ -413,7 +406,7 @@ function BudgetFinancePage() {
           Restricted to Club Treasurers & Officers
         </h2>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          Financial ledgers and expense logging are strictly restricted to designated club treasurers, presidents, and university administrators.
+          Financial ledgers and expense logging are strictly restricted to designated club treasurers and presidents.
         </p>
         <div className="mt-6">
           <Link

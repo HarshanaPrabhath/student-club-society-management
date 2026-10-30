@@ -204,7 +204,8 @@ function ClubDetailPage() {
   const canDeleteClub = isSuperAdmin
   const isPresident = myMembership?.position === 'PRESIDENT' || isSuperAdmin
   const isOfficer = OFFICER_POSITIONS.includes(myMembership?.position) || isSuperAdmin
-  const canManageLedger = LEDGER_POSITIONS.includes(myMembership?.position) || isSuperAdmin
+  const canManageLedger =
+    !isSuperAdmin && !isFacultyAdvisor && LEDGER_POSITIONS.includes(myMembership?.position)
   const canManageRecords = RECORDS_POSITIONS.includes(myMembership?.position) || isSuperAdmin
   const canJoinClub = user?.role === 'STUDENT'
 

@@ -171,8 +171,9 @@ function AppLayout() {
   const managedLedgerClub = memberships.find(
     (m) => m.status === 'APPROVED' && ['PRESIDENT', 'TREASURER'].includes(m.position),
   )
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   const canAccessBudget =
-    !isFacultyAdvisor && (user?.role === 'SUPER_ADMIN' || Boolean(managedLedgerClub))
+    !isFacultyAdvisor && !isSuperAdmin && Boolean(managedLedgerClub)
 
   const isStudent = user?.role === 'STUDENT'
 
