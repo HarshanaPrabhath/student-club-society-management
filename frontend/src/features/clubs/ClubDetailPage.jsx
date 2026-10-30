@@ -582,9 +582,9 @@ function ClubDetailPage() {
       </div>
 
       {/* Main Club Hero Card */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs dark:border-slate-800/80 dark:bg-[#181b24]">
+      <div className="relative z-20 rounded-2xl border border-slate-200/80 bg-white shadow-xs dark:border-slate-800/80 dark:bg-[#181b24]">
         {/* Cover Photo / Gradient */}
-        <div className="relative h-44 sm:h-56 md:h-64 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+        <div className="relative h-44 sm:h-56 md:h-64 w-full overflow-hidden rounded-t-2xl bg-slate-100 dark:bg-slate-800">
           {club.logoB64 && club.logoB64.startsWith('data:image') ? (
             <img src={club.logoB64} alt={club.name} className="h-full w-full object-cover" />
           ) : (
