@@ -3,28 +3,34 @@ import {
   Calendar,
   CalendarDays,
   Check,
+  ChevronDown,
   Download,
   ExternalLink,
   MapPin,
   Pencil,
   Plus,
+  Settings,
+  Shield,
+  SlidersHorizontal,
   Trash2,
   UserMinus,
   UserPlus,
   Users,
+  Wallet,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axios'
 import { useToast } from '../../components/ToastProvider'
 import ChartCard from '../../components/charts/ChartCard'
-import ColumnChart from '../../components/charts/ColumnChart'
+import BarChartJS from '../../components/charts/chartjs/BarChartJS'
 import { monthlyCounts } from '../../components/charts/chartUtils'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import CreateEventModal from '../events/CreateEventModal'
+import EventCard from '../events/EventCard'
 import { joinClub } from './clubsSlice'
 import AnnouncementComments from './AnnouncementComments'
 import ClubResources from './ClubResources'
@@ -156,6 +162,7 @@ function ClubDetailPage() {
   const [ledger, setLedger] = useState(null)
   const [reports, setReports] = useState([])
   const [joinStatus, setJoinStatus] = useState(null)
+  const [myPendingStatus, setMyPendingStatus] = useState(false)
   const [showCreateEvent, setShowCreateEvent] = useState(false)
   const [showLogExpense, setShowLogExpense] = useState(false)
   const [showEditClub, setShowEditClub] = useState(false)
@@ -163,27 +170,89 @@ function ClubDetailPage() {
   const [announcementDraft, setAnnouncementDraft] = useState('')
   const [postingAnnouncement, setPostingAnnouncement] = useState(false)
   const [showAdminMenu, setShowAdminMenu] = useState(false)
+  const adminMenuRef = useRef(null)
+  const adminMenuButtonRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        adminMenuRef.current &&
+        !adminMenuRef.current.contains(event.target) &&
+        adminMenuButtonRef.current &&
+        !adminMenuButtonRef.current.contains(event.target)
+      ) {
+        setShowAdminMenu(false)
+      }
+    }
+    if (showAdminMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showAdminMenu])
 
   useEffect(() => {
     api.get(`/clubs/${clubId}`).then((res) => setClub(res.data)).catch(() => {})
     api.get(`/clubs/${clubId}/members`).then((res) => setMembers(res.data)).catch(() => {})
     api.get(`/clubs/${clubId}/announcements`).then((res) => setAnnouncements(res.data)).catch(() => {})
-    api.get(`/clubs/${clubId}/members/pending`).then((res) => setPendingRequests(res.data)).catch(() => {})
     api.get('/events', { params: { clubId } }).then((res) => setEvents(res.data)).catch(() => {})
     api.get(`/analytics/clubs/${clubId}`).then((res) => setStats(res.data)).catch(() => {})
   }, [clubId])
 
   const myMembership = members.find((m) => m.userId === user?.id)
-  const isOfficer = OFFICER_POSITIONS.includes(myMembership?.position)
-  const canManageLedger = LEDGER_POSITIONS.includes(myMembership?.position)
-  const canManageRecords = RECORDS_POSITIONS.includes(myMembership?.position)
-  const isPresident = myMembership?.position === 'PRESIDENT'
-  const canDeleteClub = user?.role === 'SUPER_ADMIN'
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const isFacultyAdvisor = user?.role === 'FACULTY_ADVISOR'
+  const canDeleteClub = isSuperAdmin
+  const isPresident = myMembership?.position === 'PRESIDENT' || isSuperAdmin
+  const isOfficer = OFFICER_POSITIONS.includes(myMembership?.position) || isSuperAdmin
+  const canManageLedger = LEDGER_POSITIONS.includes(myMembership?.position) || isSuperAdmin
+  const canManageRecords = RECORDS_POSITIONS.includes(myMembership?.position) || isSuperAdmin
   const canJoinClub = user?.role === 'STUDENT'
+
+  // Only club presidents and super admins have permission to list pending member requests
+  useEffect(() => {
+    if (!clubId) return
+    if (isPresident || canDeleteClub) {
+      api
+        .get(`/clubs/${clubId}/members/pending`)
+        .then((res) => setPendingRequests(Array.isArray(res.data) ? res.data : []))
+        .catch(() => {})
+    } else {
+      setPendingRequests([])
+    }
+  }, [clubId, isPresident, canDeleteClub])
+
+  // Normal students check their own pending status via /memberships/me
+  useEffect(() => {
+    if (!clubId || !user?.id || user?.role !== 'STUDENT' || myMembership) return
+    api
+      .get('/memberships/me')
+      .then((res) => {
+        const list = Array.isArray(res.data) ? res.data : []
+        const hasPending = list.some((m) => m.clubId === clubId && m.status === 'PENDING')
+        setMyPendingStatus(hasPending)
+      })
+      .catch(() => {})
+  }, [clubId, user?.id, user?.role, myMembership])
+
   const effectiveMembershipStatus =
     joinStatus === 'LEFT'
       ? null
-      : joinStatus || (myMembership ? 'APPROVED' : pendingRequests.some((p) => p.userId === user?.id) ? 'PENDING' : null)
+      : joinStatus || (myMembership ? 'APPROVED' : (myPendingStatus || pendingRequests.some((p) => p.userId === user?.id)) ? 'PENDING' : null)
+
+  async function handleAdvisorReviewEvent(e, eventId, approve) {
+    let reason
+    if (!approve) {
+      reason = window.prompt('Reason for rejecting (optional):')
+      if (reason === null) return
+    }
+    try {
+      await api.post(`/events/${eventId}/${approve ? 'approve' : 'reject'}`, approve ? undefined : { reason })
+      showToast(approve ? 'Event proposal approved 🎉' : 'Event proposal rejected')
+      api.get('/events', { params: { clubId } }).then((res) => setEvents(res.data)).catch(() => {})
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to review event', 'error')
+    }
+  }
 
   useEffect(() => {
     if (!canManageLedger) return
@@ -411,6 +480,49 @@ function ClubDetailPage() {
     getValue: (e) => Number(e.amount) || 0,
   })
 
+  const spendingChartData = useMemo(() => {
+    return {
+      labels: spendingByMonth.map((m) => m.label),
+      datasets: [
+        {
+          label: 'Total Expenses ($)',
+          data: spendingByMonth.map((m) => m.value),
+          backgroundColor: '#6366f1',
+          hoverBackgroundColor: '#4f46e5',
+          borderRadius: 6,
+        },
+      ],
+    }
+  }, [spendingByMonth])
+
+  const eventEngagementChartData = useMemo(() => {
+    if (!stats?.events || stats.events.length === 0) return null
+    const recentEvents = stats.events.slice(-5)
+    return {
+      labels: recentEvents.map((e) => (e.title.length > 15 ? e.title.slice(0, 13) + '...' : e.title)),
+      datasets: [
+        {
+          label: 'RSVP / Going',
+          data: recentEvents.map((e) => e.going),
+          backgroundColor: '#6366f1',
+          borderRadius: 4,
+        },
+        {
+          label: 'Attended',
+          data: recentEvents.map((e) => e.attended),
+          backgroundColor: '#10b981',
+          borderRadius: 4,
+        },
+        {
+          label: 'No-Shows',
+          data: recentEvents.map((e) => e.noShows),
+          backgroundColor: '#f59e0b',
+          borderRadius: 4,
+        },
+      ],
+    }
+  }, [stats?.events])
+
   // Dynamic real tags from club attributes
   const realClubTags = useMemo(() => {
     if (!club) return []
@@ -429,7 +541,7 @@ function ClubDetailPage() {
   // Dynamic next meeting / event schedule from real events
   const nextEvent = futureEvents[0]
 
-  const canViewMembers = isOfficer || user?.role === 'SUPER_ADMIN' || user?.role === 'FACULTY_ADVISOR'
+  const canViewMembers = isOfficer || isSuperAdmin || isFacultyAdvisor
   const activeTab = (tab === 'budget' && !canManageLedger) || (tab === 'members' && !canViewMembers) ? 'about' : tab
 
   const tabs = [
@@ -459,8 +571,11 @@ function ClubDetailPage() {
           Home
         </Link>
         <span className="text-slate-300 dark:text-slate-600">/</span>
-        <Link to="/clubs" className="text-slate-400 hover:text-slate-600 dark:text-slate-500 font-medium">
-          My Clubs
+        <Link
+          to={isFacultyAdvisor ? '/advisor/clubs' : '/clubs'}
+          className="text-slate-400 hover:text-slate-600 dark:text-slate-500 font-medium"
+        >
+          Clubs
         </Link>
         <span className="text-slate-300 dark:text-slate-600">/</span>
         <span className="font-semibold text-slate-900 dark:text-white truncate">{club.name}</span>
@@ -511,15 +626,25 @@ function ClubDetailPage() {
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-            {/* Club Admin Pill */}
-            {(isOfficer || user?.role === 'SUPER_ADMIN') && (
+            {/* Club Admin Pill (for student officers) */}
+            {isOfficer && !isSuperAdmin && (
               <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-[#6366f1] dark:bg-indigo-950/40 dark:text-indigo-300">
                 Club Admin
               </span>
             )}
 
-            {/* Join / Joined Button */}
-            {effectiveMembershipStatus === 'APPROVED' ? (
+            {/* Role Oversight Badges or Student Join/Leave Actions */}
+            {isFacultyAdvisor ? (
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200/80 bg-purple-50 px-3.5 py-2 text-xs md:text-sm font-semibold text-purple-700 shadow-xs dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300">
+                <Shield className="h-4 w-4" />
+                <span>Faculty Oversight</span>
+              </span>
+            ) : isSuperAdmin ? (
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200/80 bg-indigo-50 px-3.5 py-2 text-xs md:text-sm font-semibold text-[#6366f1] shadow-xs dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
+                <Shield className="h-4 w-4" />
+                <span>System Administrator</span>
+              </span>
+            ) : effectiveMembershipStatus === 'APPROVED' ? (
               <button
                 type="button"
                 onClick={isPresident ? undefined : handleLeave}
@@ -562,65 +687,234 @@ function ClubDetailPage() {
             {(isOfficer || user?.role === 'SUPER_ADMIN') && (
               <div className="relative">
                 <button
+                  ref={adminMenuButtonRef}
                   type="button"
+                  aria-expanded={showAdminMenu}
+                  aria-haspopup="true"
                   onClick={() => setShowAdminMenu((o) => !o)}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs md:text-sm font-semibold transition-all duration-200 shadow-xs ${
+                    showAdminMenu
+                      ? 'border-[#6366f1] bg-indigo-50 text-[#6366f1] ring-2 ring-[#6366f1]/20 dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-300'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#181b24] dark:text-slate-200 dark:hover:bg-slate-800'
+                  }`}
                 >
-                  Manage
+                  <SlidersHorizontal className="h-4 w-4 text-[#6366f1]" />
+                  <span>Manage</span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                      showAdminMenu ? 'rotate-180 text-[#6366f1]' : 'text-slate-400'
+                    }`}
+                  />
                 </button>
+
                 {showAdminMenu && (
-                  <div className="absolute right-0 z-50 mt-1.5 w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg dark:border-slate-800 dark:bg-[#181b24]">
-                    {isPresident && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAdminMenu(false)
-                          setShowEditClub(true)
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit Club
-                      </button>
-                    )}
-                    {isOfficer && !isPresident && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAdminMenu(false)
-                          handleClaimPresidency()
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
-                      >
-                        <UserPlus className="h-3.5 w-3.5" />
-                        Claim Presidency
-                      </button>
-                    )}
-                    {isPresident && !club.archived && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAdminMenu(false)
-                          handleArchiveClub()
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                      >
-                        <Archive className="h-3.5 w-3.5" />
-                        Archive Club
-                      </button>
-                    )}
+                  <div
+                    ref={adminMenuRef}
+                    className="absolute right-0 z-50 mt-2 w-72 sm:w-80 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-xl shadow-slate-900/10 backdrop-blur-md transition-all dark:border-slate-800 dark:bg-[#181b24] dark:shadow-black/40"
+                  >
+                    {/* Menu Header */}
+                    <div className="border-b border-slate-100 px-3 py-2.5 dark:border-slate-800">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                          Club Management
+                        </span>
+                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-[#6366f1] dark:bg-indigo-950/60 dark:text-indigo-300">
+                          {isSuperAdmin ? 'Super Admin' : isPresident ? 'President' : 'Officer'}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        {club.name}
+                      </p>
+                    </div>
+
+                    <div className="py-1 space-y-0.5">
+                      {/* Edit Club */}
+                      {isPresident && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAdminMenu(false)
+                            setShowEditClub(true)
+                          }}
+                          className="flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-800/60 group"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-[#6366f1] dark:bg-indigo-950/50 dark:text-indigo-400 group-hover:scale-105 transition-transform">
+                            <Pencil className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                              Edit Club Details
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                              Name, description, fees & join policy
+                            </p>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Club Settings */}
+                      {isPresident && (
+                        <Link
+                          to={`/clubs/${clubId}/settings`}
+                          onClick={() => setShowAdminMenu(false)}
+                          className="flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-800/60 group"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 group-hover:scale-105 transition-transform">
+                            <Settings className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                              Club Settings & Preferences
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                              Full parameters, meeting times & alerts
+                            </p>
+                          </div>
+                        </Link>
+                      )}
+
+                      {/* Manage Members Directory */}
+                      {canViewMembers && (
+                        <Link
+                          to={`/clubs/${clubId}/members`}
+                          onClick={() => setShowAdminMenu(false)}
+                          className="flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-800/60 group"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+                            <Users className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                              Member Directory
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                              View roster, positions & join requests
+                            </p>
+                          </div>
+                        </Link>
+                      )}
+
+                      {/* Create Event */}
+                      {(isOfficer || isSuperAdmin) && !club.archived && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAdminMenu(false)
+                            setShowCreateEvent(true)
+                          }}
+                          className="flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-800/60 group"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400 group-hover:scale-105 transition-transform">
+                            <Calendar className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                              Create New Event
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                              Schedule meetings, workshops & meetups
+                            </p>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Log Expense */}
+                      {canManageLedger && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAdminMenu(false)
+                            setShowLogExpense(true)
+                          }}
+                          className="flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-800/60 group"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400 group-hover:scale-105 transition-transform">
+                            <Wallet className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                              Record Expense
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                              Log club budget transactions & receipts
+                            </p>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Claim Presidency */}
+                      {isOfficer && !isPresident && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAdminMenu(false)
+                            handleClaimPresidency()
+                          }}
+                          className="flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition-all hover:bg-indigo-50 dark:hover:bg-indigo-950/30 group"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 group-hover:scale-105 transition-transform">
+                            <UserPlus className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                              Claim Presidency
+                            </p>
+                            <p className="text-[11px] text-indigo-500/80 dark:text-indigo-400/80 truncate">
+                              Assume club leadership if vacant
+                            </p>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Archive / Unarchive Club */}
+                      {isPresident && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAdminMenu(false)
+                            handleArchiveClub()
+                          }}
+                          className="flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition-all hover:bg-amber-50 dark:hover:bg-amber-950/30 group"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 group-hover:scale-105 transition-transform">
+                            <Archive className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                              {club.archived ? 'Reactivate Society' : 'Archive Society'}
+                            </p>
+                            <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 truncate">
+                              {club.archived ? 'Allow new events and members' : 'Freeze registrations and scheduling'}
+                            </p>
+                          </div>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Danger Zone: Delete Club */}
                     {canDeleteClub && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAdminMenu(false)
-                          handleDeleteClub()
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete Club
-                      </button>
+                      <div className="border-t border-slate-100 pt-1 dark:border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAdminMenu(false)
+                            handleDeleteClub()
+                          }}
+                          className="flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition-all hover:bg-rose-50 text-rose-600 dark:hover:bg-rose-950/30 dark:text-rose-400 group"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-300 group-hover:scale-105 transition-transform">
+                            <Trash2 className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                              Delete Society
+                            </p>
+                            <p className="text-[11px] text-rose-400/90 dark:text-rose-500 truncate">
+                              Permanently remove club and data
+                            </p>
+                          </div>
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -755,6 +1049,20 @@ function ClubDetailPage() {
                 ))}
               </div>
             </SectionCard>
+
+            {/* Event Engagement & Turnout Analytics with Chart.js */}
+            {eventEngagementChartData && (
+              <SectionCard title="Event Turnout & Attendance Analytics">
+                <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+                  Attendance vs RSVP breakdown across recent society sessions
+                </p>
+                <BarChartJS
+                  data={eventEngagementChartData}
+                  height={220}
+                  ariaLabel="Event turnout and attendance chart"
+                />
+              </SectionCard>
+            )}
 
             {/* Reported comments for president */}
             {isPresident && reports.length > 0 && (
@@ -925,23 +1233,19 @@ function ClubDetailPage() {
           {events.length === 0 && (
             <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">No events found for this club.</p>
           )}
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {events.map((e) => (
-              <Card key={e.id} to={`/events/${e.id}`} className="overflow-hidden p-0">
-                <div className="flex aspect-video items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800">
-                  {e.bannerB64 ? (
-                    <img src={e.bannerB64} alt={e.title} className="h-full w-full object-cover" />
-                  ) : (
-                    <CalendarDays className="h-7 w-7" strokeWidth={1.5} />
-                  )}
-                </div>
-                <div className="p-4">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{e.title}</p>
-                  <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                    {new Date(e.eventDate).toLocaleDateString()}
-                  </p>
-                </div>
-              </Card>
+              <EventCard
+                key={e.id}
+                event={{
+                  ...e,
+                  clubName: e.clubName || club?.name,
+                  clubCategory: e.clubCategory || club?.category,
+                }}
+                isFacultyAdvisor={isFacultyAdvisor}
+                isSuperAdmin={isSuperAdmin}
+                onAdvisorReview={handleAdvisorReviewEvent}
+              />
             ))}
           </div>
         </section>
@@ -1016,20 +1320,29 @@ function ClubDetailPage() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">{m.userName}</span>
                   {isPresident ? (
-                    <select
-                      value={m.position}
-                      onChange={(e) => handleAssignPosition(m.id, e.target.value)}
-                      className="mt-0.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                    >
-                      {ALL_POSITIONS.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative inline-flex items-center mt-1">
+                      <select
+                        value={m.position}
+                        onChange={(e) => handleAssignPosition(m.id, e.target.value)}
+                        className={`appearance-none rounded-full pl-2.5 pr-6 py-0.5 text-xs font-semibold outline-none border transition-all cursor-pointer shadow-2xs ${
+                          m.position === 'PRESIDENT'
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800'
+                            : m.position === 'VP' || m.position === 'SECRETARY' || m.position === 'TREASURER'
+                              ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800'
+                              : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                        }`}
+                      >
+                        {ALL_POSITIONS.map((p) => (
+                          <option key={p} value={p}>
+                            {POSITION_LABEL[p] || p}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 opacity-60 text-slate-500 dark:text-slate-400" />
+                    </div>
                   ) : (
                     <Badge tone={POSITION_TONE[m.position] || 'neutral'} className="mt-0.5">
-                      {m.position}
+                      {POSITION_LABEL[m.position] || m.position}
                     </Badge>
                   )}
                 </span>
@@ -1085,19 +1398,19 @@ function ClubDetailPage() {
                 </Card>
               </div>
 
-              {ledger.expenses.length > 0 && (
+              {ledger.expenses.length > 0 && spendingChartData && (
                 <ChartCard
                   title="Spending by month"
                   subtitle="Logged expenses, past 6 months"
                   table={{
                     columns: ['Month', 'Spent'],
-                    rows: spendingByMonth.map((m) => [m.fullLabel, m.value.toLocaleString()]),
+                    rows: spendingByMonth.map((m) => [m.fullLabel, `$${m.value.toLocaleString()}`]),
                   }}
                 >
-                  <ColumnChart
-                    ariaLabel="Spending by month"
-                    series={[{ label: 'Spent', color: 'var(--chart-series-1)' }]}
-                    data={spendingByMonth.map((m) => ({ label: m.label, fullLabel: m.fullLabel, values: [m.value] }))}
+                  <BarChartJS
+                    data={spendingChartData}
+                    height={220}
+                    ariaLabel="Spending by month bar chart"
                   />
                 </ChartCard>
               )}

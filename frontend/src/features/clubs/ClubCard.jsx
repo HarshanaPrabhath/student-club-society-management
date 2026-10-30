@@ -1,4 +1,4 @@
-import { Check, Clock, Users } from 'lucide-react'
+import { Check, Clock, Shield, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
@@ -21,7 +21,7 @@ function getCategoryGradient(category = '') {
   return 'from-[#6366f1] via-[#7c3aed] to-[#4f46e5]'
 }
 
-function ClubCard({ club, user, membership, onMembershipChange }) {
+function ClubCard({ club, user, membership, onMembershipChange, showStatus = false }) {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const [joining, setJoining] = useState(false)
@@ -102,6 +102,26 @@ function ClubCard({ club, user, membership, onMembershipChange }) {
             </span>
           </div>
         )}
+
+        {/* Status Pill (for Oversight & Admin views) */}
+        {showStatus && club.status && (
+          <span
+            className={`absolute right-3.5 top-3.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-xs backdrop-blur-xs ${
+              club.status === 'APPROVED'
+                ? 'bg-emerald-600/90 text-white'
+                : club.status === 'PENDING'
+                  ? 'bg-amber-500/90 text-white'
+                  : 'bg-red-500/90 text-white'
+            }`}
+          >
+            {club.status}
+          </span>
+        )}
+        {club.archived && (
+          <span className="absolute right-3.5 top-3.5 rounded-full bg-slate-800/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-xs">
+            Archived
+          </span>
+        )}
       </div>
 
       {/* Card Body */}
@@ -133,32 +153,51 @@ function ClubCard({ club, user, membership, onMembershipChange }) {
         </div>
 
         {/* Action Button */}
-        <button
-          type="button"
-          onClick={handleJoin}
-          disabled={joining}
-          className={`w-full rounded-2xl py-3 px-4 text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.99] shadow-xs ${
-            isApproved
-              ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200'
-              : isPending
-                ? 'border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-300'
-                : 'bg-gradient-to-r from-[#6366f1] via-[#7c3aed] to-[#a855f7] text-white hover:opacity-95 hover:shadow-md'
-          }`}
-        >
-          {isApproved ? (
-            <>
-              <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Joined</span>
-            </>
-          ) : isPending ? (
-            <>
-              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <span>Requested</span>
-            </>
-          ) : (
-            <span>{joining ? 'Joining…' : 'Join Club'}</span>
-          )}
-        </button>
+        {user?.role === 'SUPER_ADMIN' || user?.role === 'FACULTY_ADVISOR' ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              navigate(`/clubs/${club.id}`)
+            }}
+            className={`w-full rounded-2xl py-3 px-4 text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.99] shadow-xs ${
+              user?.role === 'SUPER_ADMIN'
+                ? 'bg-indigo-50 text-[#6366f1] hover:bg-indigo-100 border border-indigo-200/80 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800'
+                : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200/80 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800'
+            }`}
+          >
+            <Shield className="h-4 w-4" />
+            <span>{user?.role === 'SUPER_ADMIN' ? 'Manage Club' : 'Manage & Oversee'}</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleJoin}
+            disabled={joining}
+            className={`w-full rounded-2xl py-3 px-4 text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.99] shadow-xs ${
+              isApproved
+                ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200'
+                : isPending
+                  ? 'border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-300'
+                  : 'bg-[#6366f1] hover:bg-[#4f46e5] text-white shadow-xs hover:shadow-md'
+            }`}
+          >
+            {isApproved ? (
+              <>
+                <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Joined</span>
+              </>
+            ) : isPending ? (
+              <>
+                <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <span>Requested</span>
+              </>
+            ) : (
+              <span>{joining ? 'Joining…' : 'Join Club'}</span>
+            )}
+          </button>
+        )}
       </div>
     </div>
   )
