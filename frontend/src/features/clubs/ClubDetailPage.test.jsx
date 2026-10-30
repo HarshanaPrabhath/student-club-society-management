@@ -119,4 +119,64 @@ describe('ClubDetailPage', () => {
     expect(screen.queryByRole('tab', { name: /^budget/i })).not.toBeInTheDocument()
     expect(api.get).not.toHaveBeenCalledWith(expect.stringContaining('/expenses/ledger'))
   })
+
+  it('allows Super Admin to see remove button for President and call delete membership', async () => {
+    const { fireEvent } = await import('@testing-library/react')
+    const api = (await import('../../api/axios')).default
+    const presidentMember = {
+      id: 'mem-pres-1',
+      userId: 'user-pres',
+      userName: 'Alice President',
+      userEmail: 'alice@example.com',
+      position: 'PRESIDENT',
+      status: 'APPROVED',
+      joinedAt: '2026-01-01T00:00:00Z',
+    }
+
+    api.get.mockImplementation((url) => {
+      if (url === '/clubs/club-sa-1') return Promise.resolve({ data: sampleClub })
+      if (url === '/clubs/club-sa-1/members') return Promise.resolve({ data: [presidentMember] })
+      if (url === '/clubs/club-sa-1/announcements') return Promise.resolve({ data: [] })
+      if (url === '/events') return Promise.resolve({ data: [] })
+      if (url === '/analytics/clubs/club-sa-1') return Promise.resolve({ data: null })
+      if (url === '/clubs/club-sa-1/members/pending') return Promise.resolve({ data: [] })
+      return Promise.resolve({ data: [] })
+    })
+    api.delete.mockResolvedValue({})
+
+    const adminUser = {
+      id: 'admin-1',
+      name: 'Super Admin',
+      email: 'admin@university.edu',
+      role: 'SUPER_ADMIN',
+    }
+
+    // Mock window.confirm
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    renderDetailPage('club-sa-1', adminUser)
+
+    expect(await screen.findByRole('heading', { name: 'Robotics & AI Society' })).toBeInTheDocument()
+
+    // Switch to Members tab
+    const membersTab = screen.getByRole('tab', { name: /^members/i })
+    fireEvent.click(membersTab)
+
+    // President should be listed
+    expect(await screen.findByText('Alice President')).toBeInTheDocument()
+
+    // Super Admin should see the remove button for President
+    const removeBtn = screen.getByRole('button', { name: 'Remove Alice President' })
+    expect(removeBtn).toBeInTheDocument()
+    expect(removeBtn).toHaveAttribute('title', 'Remove President from club')
+
+    // Click remove button
+    fireEvent.click(removeBtn)
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Remove President Alice President from the club? This will vacate the presidency.')
+    )
+    expect(api.delete).toHaveBeenCalledWith('/memberships/mem-pres-1')
+    confirmSpy.mockRestore()
+  })
 })

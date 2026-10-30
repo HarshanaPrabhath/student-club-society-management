@@ -134,7 +134,7 @@ public class MembershipService {
         membershipRepository.delete(membership);
     }
 
-    /** The President can remove a member (or turn away an applicant). The President themselves can't be removed. */
+    /** The President can remove a member (or turn away an applicant). The President themselves can't be removed, unless by Super Admin. */
     public void removeMember(UUID membershipId, UserPrincipal principal) {
         Membership membership = membershipRepository.findById(membershipId)
                 .orElseThrow(() -> ApiException.notFound("Membership not found"));
@@ -142,7 +142,8 @@ public class MembershipService {
 
         requirePresident(club.getId(), principal);
 
-        if (membership.getPosition() == MembershipPosition.PRESIDENT) {
+        boolean isSuperAdmin = "SUPER_ADMIN".equals(principal.getRole());
+        if (membership.getPosition() == MembershipPosition.PRESIDENT && !isSuperAdmin) {
             throw ApiException.badRequest("The President can't be removed — transfer the role to another member first");
         }
 
@@ -152,8 +153,13 @@ public class MembershipService {
         }
         membershipRepository.delete(membership);
 
-        notificationService.notify(target, "You have been removed from " + club.getName() + ".");
-        audit(principal, "REMOVE_MEMBER", membership.getId(), target.getName() + " removed from " + club.getName());
+        if (isSuperAdmin && membership.getPosition() == MembershipPosition.PRESIDENT) {
+            notificationService.notify(target, "You have been removed as President from " + club.getName() + " by Super Admin.");
+            audit(principal, "REMOVE_PRESIDENT", membership.getId(), "President " + target.getName() + " removed from " + club.getName() + " by Super Admin");
+        } else {
+            notificationService.notify(target, "You have been removed from " + club.getName() + ".");
+            audit(principal, "REMOVE_MEMBER", membership.getId(), target.getName() + " removed from " + club.getName());
+        }
     }
 
     /** Throws forbidden unless the given user is the approved PRESIDENT of the given club. */

@@ -365,11 +365,14 @@ function MemberDirectoryPage() {
   }
 
   // Single remove member
-  async function handleRemoveMember(membershipId, name) {
-    if (!window.confirm(`Remove ${name} from the club roster?`)) return
+  async function handleRemoveMember(membershipId, name, isPresidentTarget = false) {
+    const confirmMsg = isPresidentTarget
+      ? `Remove President ${name} from the club? This will vacate the presidency.`
+      : `Remove ${name} from the club roster?`
+    if (!window.confirm(confirmMsg)) return
     try {
       await api.delete(`/memberships/${membershipId}`)
-      showToast(`${name} removed`)
+      showToast(isPresidentTarget ? `President ${name} removed` : `${name} removed`)
       setSelectedIds((prev) => prev.filter((id) => id !== membershipId))
       reloadAll()
     } catch (err) {
@@ -854,14 +857,17 @@ function MemberDirectoryPage() {
                             >
                               <Edit2 className="h-3.5 w-3.5" />
                             </button>
-                            <button
-                              type="button"
-                              title="Remove Member"
-                              onClick={() => handleRemoveMember(m.id, m.userName || m.name || 'Member')}
-                              className="rounded-lg p-1.5 text-rose-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            {(!isPresident || m.position !== 'PRESIDENT' || isSuperAdmin) && (
+                              <button
+                                type="button"
+                                title={m.position === 'PRESIDENT' ? 'Remove President' : 'Remove Member'}
+                                aria-label={`Remove ${m.userName || 'member'}`}
+                                onClick={() => handleRemoveMember(m.id, m.userName || m.name || 'Member', m.position === 'PRESIDENT')}
+                                className="rounded-lg p-1.5 text-rose-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>

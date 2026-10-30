@@ -294,6 +294,23 @@ class MembershipServiceTest {
     }
 
     @Test
+    void removeMember_president_canBeRemovedBySuperAdmin() {
+        User admin = User.builder().id(UUID.randomUUID()).email("admin@example.com").name("SuperAdmin").role(Role.SUPER_ADMIN).build();
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        UserPrincipal adminPrincipal = new UserPrincipal(admin);
+
+        Membership presidentMembership = stubPresidentMembership();
+        when(membershipRepository.findById(presidentMembership.getId())).thenReturn(Optional.of(presidentMembership));
+
+        membershipService.removeMember(presidentMembership.getId(), adminPrincipal);
+
+        verify(membershipRepository).delete(presidentMembership);
+        verify(notificationService).notify(president, "You have been removed as President from Chess Club by Super Admin.");
+        verify(auditLogService).log(any(User.class), org.mockito.ArgumentMatchers.eq("REMOVE_PRESIDENT"),
+                anyString(), any(UUID.class), anyString());
+    }
+
+    @Test
     void removeMember_byPresident_deletesNotifiesAndAudits() {
         stubPresidentMembership();
         Membership target = memberOf(user, MembershipPosition.MEMBER, MembershipStatus.APPROVED);

@@ -8,7 +8,7 @@ import membershipsReducer from './membershipsSlice'
 import MemberDirectoryPage from './MemberDirectoryPage'
 
 vi.mock('../../api/axios', () => ({
-  default: { get: vi.fn(), post: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }))
 
 function renderWithProviders(ui, { initialState } = {}) {
@@ -105,5 +105,45 @@ describe('MemberDirectoryPage', () => {
     expect(screen.getAllByText('Read-only').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /invite members/i })).not.toBeInTheDocument()
     expect(axios.get).not.toHaveBeenCalledWith('/clubs/club-1/members/pending')
+  })
+
+  it('allows Super Admin to remove the President', async () => {
+    const { fireEvent } = await import('@testing-library/react')
+    const axios = (await import('../../api/axios')).default
+    axios.delete.mockResolvedValue({})
+    axios.get.mockImplementation((url) => {
+      if (url === '/clubs') {
+        return Promise.resolve({ data: [{ id: 'club-1', name: 'Tech Club' }] })
+      }
+      if (url.includes('/pending')) return Promise.resolve({ data: [] })
+      return Promise.resolve({
+        data: [
+          { id: 'm1', userId: 'pres-1', userName: 'President Bob', clubName: 'Tech Club', position: 'PRESIDENT', status: 'APPROVED' },
+          { id: 'm2', userId: 'student-1', userName: 'Charlie', clubName: 'Tech Club', position: 'MEMBER', status: 'APPROVED' },
+        ],
+      })
+    })
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    renderWithProviders(<MemberDirectoryPage />, {
+      initialState: {
+        auth: { user: { id: 'admin-1', name: 'Super Admin', role: 'SUPER_ADMIN' } },
+      },
+    })
+
+    expect(await screen.findByText(/member directory/i)).toBeInTheDocument()
+    expect(await screen.findByText('President Bob')).toBeInTheDocument()
+
+    const removePresBtn = screen.getByTitle('Remove President')
+    expect(removePresBtn).toBeInTheDocument()
+
+    fireEvent.click(removePresBtn)
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Remove President President Bob from the club? This will vacate the presidency.')
+    )
+    expect(axios.delete).toHaveBeenCalledWith('/memberships/m1')
+    confirmSpy.mockRestore()
   })
 })

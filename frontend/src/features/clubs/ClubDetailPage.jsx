@@ -351,13 +351,16 @@ function ClubDetailPage() {
     }
   }
 
-  async function handleRemoveMember(membershipId, name) {
-    if (!window.confirm(`Remove ${name} from the club?`)) return
+  async function handleRemoveMember(membershipId, name, isPresidentTarget = false) {
+    const confirmMsg = isPresidentTarget
+      ? `Remove President ${name} from the club? This will vacate the presidency.`
+      : `Remove ${name} from the club?`
+    if (!window.confirm(confirmMsg)) return
     try {
       await api.delete(`/memberships/${membershipId}`)
       const res = await api.get(`/clubs/${clubId}/members`)
       setMembers(res.data)
-      showToast('Member removed')
+      showToast(isPresidentTarget ? 'President removed' : 'Member removed')
     } catch (e) {
       showToast(e.response?.data?.message || 'Something went wrong', 'error')
     }
@@ -1360,13 +1363,13 @@ function ClubDetailPage() {
                     </Badge>
                   )}
                 </span>
-                {isPresident && m.position !== 'PRESIDENT' && (
+                {(isSuperAdmin || (isPresident && m.position !== 'PRESIDENT')) && (
                   <button
                     type="button"
-                    title="Remove from club"
+                    title={m.position === 'PRESIDENT' ? 'Remove President from club' : 'Remove from club'}
                     aria-label={`Remove ${m.userName}`}
-                    onClick={() => handleRemoveMember(m.id, m.userName)}
-                    className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                    onClick={() => handleRemoveMember(m.id, m.userName, m.position === 'PRESIDENT')}
+                    className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
                   >
                     <UserMinus className="h-4 w-4" />
                   </button>
