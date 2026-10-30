@@ -367,6 +367,19 @@ function ClubDetailPage() {
   }
 
   async function handleAssignPosition(membershipId, position) {
+    if (position === 'PRESIDENT') {
+      const currentPres = members.find((m) => m.position === 'PRESIDENT' && m.id !== membershipId)
+      const targetMember = members.find((m) => m.id === membershipId)
+      const targetName = targetMember?.userName || 'this member'
+      const confirmMsg = currentPres
+        ? `A club can only have one President. Setting ${targetName} as President will demote ${currentPres.userName || 'the current President'} to Member. Proceed with transfer?`
+        : `Assign ${targetName} as President of the club?`
+      if (!window.confirm(confirmMsg)) {
+        const res = await api.get(`/clubs/${clubId}/members`)
+        setMembers(res.data)
+        return
+      }
+    }
     try {
       await api.put(`/memberships/${membershipId}/position`, { position })
       const res = await api.get(`/clubs/${clubId}/members`)
@@ -374,6 +387,8 @@ function ClubDetailPage() {
       showToast('Position updated')
     } catch (e) {
       showToast(e.response?.data?.message || 'Something went wrong', 'error')
+      const res = await api.get(`/clubs/${clubId}/members`)
+      setMembers(res.data)
     }
   }
 

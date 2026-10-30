@@ -1,6 +1,7 @@
 package com.club.backend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -9,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -352,6 +354,34 @@ class MembershipServiceTest {
         verify(membershipRepository).saveAndFlush(currentPresident);
         verify(notificationService).notify(president, "You are no longer President of Chess Club.");
         verify(notificationService).notify(user, "Your position in Chess Club is now PRESIDENT.");
+    }
+
+    @Test
+    void validateSinglePresident_throwsWhenMultiplePresidentsFound() {
+        Membership pres1 = memberOf(president, MembershipPosition.PRESIDENT, MembershipStatus.APPROVED);
+        Membership pres2 = memberOf(user, MembershipPosition.PRESIDENT, MembershipStatus.APPROVED);
+        when(membershipRepository.findByClubIdAndStatus(club.getId(), MembershipStatus.APPROVED))
+                .thenReturn(List.of(pres1, pres2));
+
+        assertThatThrownBy(() -> membershipService.validateSinglePresident(club.getId()))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("A club cannot have more than one President");
+    }
+
+    @Test
+    void validateSinglePresident_succeedsWithOneOrZeroPresidents() {
+        Membership pres1 = memberOf(president, MembershipPosition.PRESIDENT, MembershipStatus.APPROVED);
+        when(membershipRepository.findByClubIdAndStatus(club.getId(), MembershipStatus.APPROVED))
+                .thenReturn(List.of(pres1));
+
+        assertThatCode(() -> membershipService.validateSinglePresident(club.getId()))
+                .doesNotThrowAnyException();
+
+        when(membershipRepository.findByClubIdAndStatus(club.getId(), MembershipStatus.APPROVED))
+                .thenReturn(List.of());
+
+        assertThatCode(() -> membershipService.validateSinglePresident(club.getId()))
+                .doesNotThrowAnyException();
     }
 
     @Test

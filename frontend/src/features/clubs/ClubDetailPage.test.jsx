@@ -179,4 +179,69 @@ describe('ClubDetailPage', () => {
     expect(api.delete).toHaveBeenCalledWith('/memberships/mem-pres-1')
     confirmSpy.mockRestore()
   })
+
+  it('prompts confirmation when transferring President role to enforce single president policy', async () => {
+    const { fireEvent } = await import('@testing-library/react')
+    const api = (await import('../../api/axios')).default
+    const presidentMember = {
+      id: 'mem-pres-1',
+      userId: 'user-pres',
+      userName: 'Alice President',
+      userEmail: 'alice@example.com',
+      position: 'PRESIDENT',
+      status: 'APPROVED',
+      joinedAt: '2026-01-01T00:00:00Z',
+    }
+    const regularMember = {
+      id: 'mem-user-2',
+      userId: 'user-2',
+      userName: 'Bob Member',
+      userEmail: 'bob@example.com',
+      position: 'MEMBER',
+      status: 'APPROVED',
+      joinedAt: '2026-01-02T00:00:00Z',
+    }
+
+    api.get.mockImplementation((url) => {
+      if (url === '/clubs/club-sa-1') return Promise.resolve({ data: sampleClub })
+      if (url === '/clubs/club-sa-1/members') return Promise.resolve({ data: [presidentMember, regularMember] })
+      if (url === '/clubs/club-sa-1/announcements') return Promise.resolve({ data: [] })
+      if (url === '/events') return Promise.resolve({ data: [] })
+      if (url === '/analytics/clubs/club-sa-1') return Promise.resolve({ data: null })
+      if (url === '/clubs/club-sa-1/members/pending') return Promise.resolve({ data: [] })
+      return Promise.resolve({ data: [] })
+    })
+    api.put.mockResolvedValue({ data: { ...regularMember, position: 'PRESIDENT' } })
+
+    const adminUser = {
+      id: 'admin-1',
+      name: 'Super Admin',
+      email: 'admin@university.edu',
+      role: 'SUPER_ADMIN',
+    }
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    renderDetailPage('club-sa-1', adminUser)
+
+    expect(await screen.findByRole('heading', { name: 'Robotics & AI Society' })).toBeInTheDocument()
+
+    // Switch to Members tab
+    const membersTab = screen.getByRole('tab', { name: /^members/i })
+    fireEvent.click(membersTab)
+
+    expect(await screen.findByText('Bob Member')).toBeInTheDocument()
+
+    // Find the position select dropdown for Bob Member
+    const selects = screen.getAllByRole('combobox')
+    const bobSelect = selects[1] // second member
+
+    fireEvent.change(bobSelect, { target: { value: 'PRESIDENT' } })
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      expect.stringContaining('A club can only have one President. Setting Bob Member as President will demote Alice President to Member. Proceed with transfer?')
+    )
+    expect(api.put).toHaveBeenCalledWith('/memberships/mem-user-2/position', { position: 'PRESIDENT' })
+    confirmSpy.mockRestore()
+  })
 })

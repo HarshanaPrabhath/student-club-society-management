@@ -328,6 +328,7 @@ public class MembershipService {
 
         membership.setPosition(position);
         membership = membershipRepository.save(membership);
+        validateSinglePresident(club.getId());
 
         notificationService.notify(membership.getUser(),
                 "Your position in " + club.getName() + " is now " + position.name() + ".");
@@ -383,11 +384,25 @@ public class MembershipService {
         }
         claimant.setPosition(MembershipPosition.PRESIDENT);
         claimant = membershipRepository.save(claimant);
+        validateSinglePresident(clubId);
 
         notificationService.notify(claimant.getUser(), "You are now President of " + club.getName() + ".");
         audit(principal, "CLAIM_PRESIDENCY", claimant.getId(), claimant.getUser().getName() + " claimed the presidency of "
                 + club.getName() + (current != null ? " from " + current.getUser().getName() : ""));
         return MembershipResponse.from(claimant);
+    }
+
+    /**
+     * Validates that a club has at most one President.
+     * Enforces the single-President invariant across all club operations.
+     */
+    public void validateSinglePresident(UUID clubId) {
+        long presidentCount = membershipRepository.findByClubIdAndStatus(clubId, MembershipStatus.APPROVED).stream()
+                .filter(m -> m.getPosition() == MembershipPosition.PRESIDENT)
+                .count();
+        if (presidentCount > 1) {
+            throw ApiException.badRequest("A club cannot have more than one President");
+        }
     }
 
     private static boolean hasGraduated(User user) {

@@ -146,4 +146,47 @@ describe('MemberDirectoryPage', () => {
     expect(axios.delete).toHaveBeenCalledWith('/memberships/m1')
     confirmSpy.mockRestore()
   })
+
+  it('enforces single president policy by disallowing President role in batch change modal', async () => {
+    const { fireEvent } = await import('@testing-library/react')
+    const axios = (await import('../../api/axios')).default
+    axios.get.mockImplementation((url) => {
+      if (url === '/clubs') {
+        return Promise.resolve({ data: [{ id: 'club-1', name: 'Tech Club' }] })
+      }
+      if (url.includes('/pending')) return Promise.resolve({ data: [] })
+      return Promise.resolve({
+        data: [
+          { id: 'm1', userId: 'pres-1', userName: 'President Bob', clubName: 'Tech Club', position: 'PRESIDENT', status: 'APPROVED' },
+          { id: 'm2', userId: 'student-1', userName: 'Charlie', clubName: 'Tech Club', position: 'MEMBER', status: 'APPROVED' },
+          { id: 'm3', userId: 'student-2', userName: 'David', clubName: 'Tech Club', position: 'MEMBER', status: 'APPROVED' },
+        ],
+      })
+    })
+
+    renderWithProviders(<MemberDirectoryPage />, {
+      initialState: {
+        auth: { user: { id: 'admin-1', name: 'Super Admin', role: 'SUPER_ADMIN' } },
+      },
+    })
+
+    expect(await screen.findByText(/member directory/i)).toBeInTheDocument()
+
+    // Select all members to trigger batch bar
+    const selectAllCheckbox = screen.getAllByRole('checkbox')[0]
+    fireEvent.click(selectAllCheckbox)
+
+    // Click "Change Role" in batch toolbar
+    const changePositionBatchBtn = await screen.findByRole('button', { name: /change role/i })
+    fireEvent.click(changePositionBatchBtn)
+
+    // Modal opens - verify the Single President Policy explanation appears
+    expect(await screen.findByText(/A club can only have one President. The President role cannot be assigned in bulk./i)).toBeInTheDocument()
+
+    // PRESIDENT option should NOT exist in the batch select dropdown inside the modal
+    const dialog = screen.getByRole('dialog')
+    const selectDropdown = dialog.querySelector('select')
+    const options = Array.from(selectDropdown.querySelectorAll('option')).map((o) => o.value)
+    expect(options).not.toContain('PRESIDENT')
+  })
 })

@@ -419,8 +419,17 @@ function MemberDirectoryPage() {
   async function handleSaveRole(e) {
     e.preventDefault()
     if (!targetMember) return
-    setUpdatingRole(true)
     const displayName = targetMember.userName || targetMember.name || 'member'
+    if (newPosition === 'PRESIDENT') {
+      const existingPres = combinedMembers.find(
+        (m) => m.position === 'PRESIDENT' && m.id !== targetMember.id,
+      )
+      if (existingPres) {
+        const confirmMsg = `A club can only have one President. Assigning ${displayName} as President will demote ${existingPres.userName || 'the current President'} to Member. Proceed with transfer?`
+        if (!window.confirm(confirmMsg)) return
+      }
+    }
+    setUpdatingRole(true)
     try {
       await api.put(`/memberships/${targetMember.id}/position`, { position: newPosition })
       showToast(`Position updated for ${displayName}`)
@@ -474,6 +483,10 @@ function MemberDirectoryPage() {
 
   async function handleSaveBatchRole(e) {
     e.preventDefault()
+    if (newPosition === 'PRESIDENT') {
+      showToast('A club can only have one President. Batch assignment to President is not permitted.', 'error')
+      return
+    }
     setUpdatingRole(true)
     try {
       await Promise.all(
@@ -1072,11 +1085,30 @@ function MemberDirectoryPage() {
                   <option value="VP">Vice President</option>
                   <option value="SECRETARY">Secretary</option>
                   <option value="TREASURER">Treasurer</option>
-                  <option value="PRESIDENT">President / Club Admin</option>
+                  {targetMember?.id !== 'batch' && (
+                    <option value="PRESIDENT">President / Club Admin (Single Executive)</option>
+                  )}
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               </div>
+              {targetMember?.id === 'batch' && (
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  A club can only have one President. The President role cannot be assigned in bulk.
+                </p>
+              )}
             </div>
+
+            {/* Single President Policy Warning */}
+            {newPosition === 'PRESIDENT' && targetMember?.id !== 'batch' && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <span>⚠️</span> Single President Rule
+                </p>
+                <p className="mt-0.5 text-[11px] leading-relaxed">
+                  A club can only have one President. Setting this member as President will transfer executive authority and demote any current President to Member.
+                </p>
+              </div>
+            )}
 
             {targetMember && targetMember.id !== 'batch' && targetMember.userId && (isPresident || isSuperAdmin) && targetMember.userId !== user?.id && targetMember.userRole !== 'SUPER_ADMIN' && targetMember.userRole !== 'FACULTY_ADVISOR' && (
               <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
