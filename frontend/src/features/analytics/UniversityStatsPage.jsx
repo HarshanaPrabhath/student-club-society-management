@@ -3,9 +3,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
 import api from '../../api/axios'
-import BarList from '../../components/charts/BarList'
 import ChartCard from '../../components/charts/ChartCard'
-import ColumnChart from '../../components/charts/ColumnChart'
+import BarChartJS from '../../components/charts/chartjs/BarChartJS'
+import DoughnutChartJS from '../../components/charts/chartjs/DoughnutChartJS'
+import LineChartJS from '../../components/charts/chartjs/LineChartJS'
 import { formatCompact, monthlyCounts } from '../../components/charts/chartUtils'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
@@ -50,6 +51,78 @@ function UniversityStatsPage() {
   const eventsByMonth = useMemo(() => monthlyCounts(liveEvents, (e) => e.eventDate, { before: 5, after: 2 }), [liveEvents])
   const clubsByCategory = useMemo(() => countBy(clubs, (c) => c.category), [clubs])
   const busiestClubs = useMemo(() => countBy(liveEvents, (e) => e.clubName).slice(0, 6), [liveEvents])
+
+  // Chart.js Datasets
+  const eventsTrendChartData = useMemo(() => {
+    return {
+      labels: eventsByMonth.map((m) => m.label),
+      datasets: [
+        {
+          label: 'Events Scheduled',
+          data: eventsByMonth.map((m) => m.value),
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99, 102, 241, 0.12)',
+          fill: true,
+          tension: 0.35,
+          borderWidth: 2.5,
+          pointBackgroundColor: '#6366f1',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+        },
+      ],
+    }
+  }, [eventsByMonth])
+
+  const categoryDoughnutData = useMemo(() => {
+    const palette = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#64748b', '#f97316']
+    return {
+      labels: clubsByCategory.map((c) => c.label),
+      datasets: [
+        {
+          data: clubsByCategory.map((c) => c.value),
+          backgroundColor: palette.slice(0, clubsByCategory.length),
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverOffset: 6,
+        },
+      ],
+    }
+  }, [clubsByCategory])
+
+  const activeClubsBarData = useMemo(() => {
+    return {
+      labels: busiestClubs.map((c) => c.label),
+      datasets: [
+        {
+          label: 'Events Hosted',
+          data: busiestClubs.map((c) => c.value),
+          backgroundColor: 'rgba(99, 102, 241, 0.85)',
+          hoverBackgroundColor: '#4f46e5',
+          borderRadius: 6,
+        },
+      ],
+    }
+  }, [busiestClubs])
+
+  const eventStatusDoughnutData = useMemo(() => {
+    const approved = events.filter((e) => e.approvalStatus === 'APPROVED' && !e.cancelled).length
+    const pending = events.filter((e) => e.approvalStatus === 'PENDING').length
+    const cancelled = events.filter((e) => e.cancelled).length
+    return {
+      labels: ['Approved & Live', 'Pending Sign-off', 'Cancelled'],
+      datasets: [
+        {
+          data: [approved, pending, cancelled],
+          backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverOffset: 4,
+        },
+      ],
+    }
+  }, [events])
 
   if (user && !isAuthorized) {
     return (
@@ -112,13 +185,11 @@ function UniversityStatsPage() {
     window.URL.revokeObjectURL(url)
   }
 
-  const monthlySeries = [{ label: 'Events', color: 'var(--chart-series-1)' }]
-
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">
       <PageHeader
         title="University-wide analytics"
-        description="Clubs, events and money across the whole university."
+        description="Real-time interactive intelligence: society activities, distribution and student engagement."
         actions={
           <>
             <Button variant="secondary" size="sm" onClick={() => handleDownload('csv')}>
@@ -133,6 +204,7 @@ function UniversityStatsPage() {
         }
       />
 
+      {/* KPI Cards */}
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
         {cards.map(([label, value, Icon, tone]) => (
           <Card key={label} interactive={false} className="flex items-center gap-3">
@@ -149,10 +221,12 @@ function UniversityStatsPage() {
         ))}
       </div>
 
+      {/* Chart.js Interactive Visualizations */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Chart 1: Line Chart for Events per month */}
         <ChartCard
           title="Events per month"
-          subtitle="Scheduled, non-cancelled events - past 5 months and next 2"
+          subtitle="Scheduled, non-cancelled events — past 5 months and next 2"
           className="lg:col-span-2"
           empty={liveEvents.length === 0 ? 'No events yet.' : null}
           table={{
@@ -160,30 +234,66 @@ function UniversityStatsPage() {
             rows: eventsByMonth.map((m) => [m.fullLabel, m.value]),
           }}
         >
-          <ColumnChart
-            ariaLabel="Events per month"
-            series={monthlySeries}
-            data={eventsByMonth.map((m) => ({ label: m.label, fullLabel: m.fullLabel, values: [m.value] }))}
+          <LineChartJS
+            data={eventsTrendChartData}
+            height={260}
+            ariaLabel="Events per month trend"
           />
         </ChartCard>
 
+        {/* Chart 2: Doughnut Chart for Clubs by category */}
         <ChartCard
           title="Clubs by category"
-          subtitle="Approved clubs"
+          subtitle="Approved society distribution"
           empty={clubsByCategory.length === 0 ? 'No clubs yet.' : null}
           table={{ columns: ['Category', 'Clubs'], rows: clubsByCategory.map((c) => [c.label, c.value]) }}
         >
-          <BarList items={clubsByCategory} />
+          <DoughnutChartJS
+            data={categoryDoughnutData}
+            height={240}
+            centerLabel={String(clubs.length)}
+            centerSublabel="Societies"
+            ariaLabel="Clubs by category doughnut"
+          />
         </ChartCard>
 
+        {/* Chart 3: Horizontal Bar Chart for Most active clubs */}
         <ChartCard
           title="Most active clubs"
-          subtitle="By number of events"
-          className="lg:col-span-3"
+          subtitle="Ranked by total events organized"
+          className="lg:col-span-2"
           empty={busiestClubs.length === 0 ? 'No events yet.' : null}
           table={{ columns: ['Club', 'Events'], rows: busiestClubs.map((c) => [c.label, c.value]) }}
         >
-          <BarList items={busiestClubs} unit="events" />
+          <BarChartJS
+            data={activeClubsBarData}
+            horizontal={true}
+            height={260}
+            ariaLabel="Most active clubs bar chart"
+          />
+        </ChartCard>
+
+        {/* Chart 4: Doughnut Chart for Event proposal lifecycle */}
+        <ChartCard
+          title="Event proposal statuses"
+          subtitle="Lifecycle of campus activities"
+          empty={events.length === 0 ? 'No proposals registered.' : null}
+          table={{
+            columns: ['Status', 'Count'],
+            rows: [
+              ['Approved & Live', events.filter((e) => e.approvalStatus === 'APPROVED' && !e.cancelled).length],
+              ['Pending Sign-off', events.filter((e) => e.approvalStatus === 'PENDING').length],
+              ['Cancelled', events.filter((e) => e.cancelled).length],
+            ],
+          }}
+        >
+          <DoughnutChartJS
+            data={eventStatusDoughnutData}
+            height={240}
+            centerLabel={String(events.length)}
+            centerSublabel="Proposals"
+            ariaLabel="Event proposal statuses"
+          />
         </ChartCard>
       </div>
     </div>
