@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   Archive,
   Calendar,
   CalendarDays,
@@ -29,6 +30,7 @@ import { monthlyCounts } from '../../components/charts/chartUtils'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
+import AdvisorRequestModal from '../advisor/AdvisorRequestModal'
 import CreateEventModal from '../events/CreateEventModal'
 import EventCard from '../events/EventCard'
 import { joinClub } from './clubsSlice'
@@ -170,6 +172,7 @@ function ClubDetailPage() {
   const [announcementDraft, setAnnouncementDraft] = useState('')
   const [postingAnnouncement, setPostingAnnouncement] = useState(false)
   const [showAdminMenu, setShowAdminMenu] = useState(false)
+  const [showAdvisorRequestModal, setShowAdvisorRequestModal] = useState(false)
   const adminMenuRef = useRef(null)
   const adminMenuButtonRef = useRef(null)
 
@@ -636,10 +639,20 @@ function ClubDetailPage() {
 
             {/* Role Oversight Badges or Student Join/Leave Actions */}
             {isFacultyAdvisor ? (
-              <span className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200/80 bg-purple-50 px-3.5 py-2 text-xs md:text-sm font-semibold text-purple-700 shadow-xs dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300">
-                <Shield className="h-4 w-4" />
-                <span>Faculty Oversight</span>
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200/80 bg-purple-50 px-3.5 py-2 text-xs md:text-sm font-semibold text-purple-700 shadow-xs dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300">
+                  <Shield className="h-4 w-4" />
+                  <span>Faculty Oversight</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowAdvisorRequestModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs md:text-sm font-semibold text-amber-700 shadow-xs transition-all hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Report to Admin</span>
+                </button>
+              </div>
             ) : isSuperAdmin ? (
               <span className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200/80 bg-indigo-50 px-3.5 py-2 text-xs md:text-sm font-semibold text-[#6366f1] shadow-xs dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
                 <Shield className="h-4 w-4" />
@@ -1497,6 +1510,16 @@ function ClubDetailPage() {
           club={club}
           onClose={() => setShowEditClub(false)}
           onCreated={(updated) => setClub(updated)}
+        />
+      )}
+
+      {showAdvisorRequestModal && (
+        <AdvisorRequestModal
+          isOpen={showAdvisorRequestModal}
+          onClose={() => setShowAdvisorRequestModal(false)}
+          clubs={club ? [club] : []}
+          preselectedClubId={clubId}
+          onCreated={() => {}}
         />
       )}
     </div>

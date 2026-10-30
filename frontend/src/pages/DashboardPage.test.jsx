@@ -11,6 +11,7 @@ vi.mock('../api/axios', () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
+    put: vi.fn(),
     delete: vi.fn(),
   },
 }))
@@ -219,6 +220,149 @@ describe('DashboardPage', () => {
     await userEventSetup.click(deleteBtns[0])
     await waitFor(() => {
       expect(api.delete).toHaveBeenCalledWith('/events/evt-sa-1')
+    })
+  })
+
+  it('renders Advisor Escalations section and allows Faculty Advisor to submit a request to Super Admin', async () => {
+    const userEventSetup = userEvent.setup()
+    const api = (await import('../api/axios')).default
+
+    api.get.mockImplementation((url) => {
+      if (url === '/advisor-requests') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 'req-1',
+              advisorName: 'Dr. John Faculty',
+              clubName: 'Creative Arts Society',
+              requestType: 'CLUB_DELETION',
+              priority: 'URGENT',
+              subject: 'Club misconduct report',
+              message: 'Repeated unauthorized events and policy violations.',
+              status: 'PENDING',
+              createdAt: '2026-10-30T10:00:00Z',
+            },
+          ],
+        })
+      }
+      return Promise.resolve({ data: [] })
+    })
+    api.post.mockResolvedValue({
+      data: {
+        id: 'req-2',
+        advisorName: 'Dr. John Faculty',
+        requestType: 'DISCIPLINARY_ACTION',
+        priority: 'NORMAL',
+        subject: 'General consultation',
+        message: 'Looking into board dispute.',
+        status: 'PENDING',
+        createdAt: '2026-10-30T11:00:00Z',
+      },
+    })
+
+    const advisorUser = {
+      id: 'adv-123',
+      name: 'Dr. John Faculty',
+      email: 'john.advisor@university.edu',
+      role: 'FACULTY_ADVISOR',
+    }
+
+    renderDashboard(advisorUser)
+
+    expect(await screen.findByText('Advisor Escalations & Admin Requests')).toBeInTheDocument()
+    expect(screen.getByText('Club misconduct report')).toBeInTheDocument()
+    expect(screen.getByText(/repeated unauthorized events/i)).toBeInTheDocument()
+
+    // Click "New Request to Admin"
+    const newReqBtn = screen.getByRole('button', { name: /new request to admin/i })
+    await userEventSetup.click(newReqBtn)
+
+    expect(await screen.findByRole('heading', { name: /submit request to super admin/i })).toBeInTheDocument()
+
+    // Fill form and submit
+    const subjectInput = screen.getByPlaceholderText(/recommend club deletion/i)
+    const messageInput = screen.getByPlaceholderText(/explain the circumstances/i)
+
+    await userEventSetup.type(subjectInput, 'Disciplinary review needed')
+    await userEventSetup.type(messageInput, 'Student executives failing to submit financial statements.')
+
+    const submitBtn = screen.getByRole('button', { name: /send to super admin/i })
+    await userEventSetup.click(submitBtn)
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith('/advisor-requests', expect.objectContaining({
+        subject: 'Disciplinary review needed',
+        message: 'Student executives failing to submit financial statements.',
+      }))
+    })
+  })
+
+  it('allows Super Admin to view advisor escalations and resolve a request', async () => {
+    const userEventSetup = userEvent.setup()
+    const api = (await import('../api/axios')).default
+
+    api.get.mockImplementation((url) => {
+      if (url === '/advisor-requests') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 'req-99',
+              advisorName: 'Dr. Jane Advisor',
+              advisorEmail: 'jane.advisor@university.edu',
+              clubName: 'Misbehaving Club',
+              clubId: 'c-99',
+              requestType: 'CLUB_DELETION',
+              priority: 'URGENT',
+              subject: 'Recommend dissolution of Misbehaving Club',
+              message: 'Severe violation of university safety policies.',
+              status: 'PENDING',
+              createdAt: '2026-10-30T10:00:00Z',
+            },
+          ],
+        })
+      }
+      return Promise.resolve({ data: [] })
+    })
+    api.put.mockResolvedValue({
+      data: {
+        id: 'req-99',
+        status: 'RESOLVED',
+        adminResponse: 'Reviewed with Dean. Club decommissioned.',
+        resolvedByName: 'Super Admin',
+      },
+    })
+
+    const adminUser = {
+      id: 'admin-01',
+      name: 'Super Admin',
+      email: 'admin@university.edu',
+      role: 'SUPER_ADMIN',
+    }
+
+    renderDashboard(adminUser)
+
+    expect(await screen.findByText('Advisor Escalations & Disciplinary Reports')).toBeInTheDocument()
+    expect(screen.getByText('Recommend dissolution of Misbehaving Club')).toBeInTheDocument()
+    expect(screen.getByText('Dr. Jane Advisor')).toBeInTheDocument()
+
+    // Click "Review & Respond"
+    const reviewBtn = screen.getByRole('button', { name: /review & respond/i })
+    await userEventSetup.click(reviewBtn)
+
+    expect(await screen.findByRole('heading', { name: /review & respond to advisor request/i })).toBeInTheDocument()
+
+    // Type response notes and submit
+    const responseInput = screen.getByPlaceholderText(/discussed with student affairs/i)
+    await userEventSetup.type(responseInput, 'Approved dissolution. Administrative notice sent.')
+
+    const saveBtn = screen.getByRole('button', { name: /save & send response/i })
+    await userEventSetup.click(saveBtn)
+
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith('/advisor-requests/req-99/resolve', {
+        status: 'RESOLVED',
+        adminResponse: 'Approved dissolution. Administrative notice sent.',
+      })
     })
   })
 })

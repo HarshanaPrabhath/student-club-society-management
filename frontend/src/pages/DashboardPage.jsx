@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   BarChart3,
   CalendarDays,
@@ -29,6 +30,8 @@ import LineChartJS from '../components/charts/chartjs/LineChartJS'
 import { monthlyCounts } from '../components/charts/chartUtils'
 import { useToast } from '../components/ToastProvider'
 import StatCard from '../components/ui/StatCard'
+import AdvisorRequestModal from '../features/advisor/AdvisorRequestModal'
+import ResolveAdvisorRequestModal from '../features/advisor/ResolveAdvisorRequestModal'
 import CreateClubModal from '../features/clubs/CreateClubModal'
 import CreateEventModal from '../features/events/CreateEventModal'
 import EventCard from '../features/events/EventCard'
@@ -94,6 +97,7 @@ function DashboardPage() {
   const [clubsList, setClubsList] = useState([])
   const [auditLogs, setAuditLogs] = useState([])
   const [pendingEvents, setPendingEvents] = useState([])
+  const [advisorRequests, setAdvisorRequests] = useState([])
 
   const isFacultyAdvisor = user?.role === 'FACULTY_ADVISOR'
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
@@ -102,6 +106,8 @@ function DashboardPage() {
   const [editingEvent, setEditingEvent] = useState(null)
   const [showCreateClubModal, setShowCreateClubModal] = useState(false)
   const [editingClub, setEditingClub] = useState(null)
+  const [showAdvisorRequestModal, setShowAdvisorRequestModal] = useState(false)
+  const [selectedAdvisorRequest, setSelectedAdvisorRequest] = useState(null)
 
   useEffect(() => {
     let mounted = true
@@ -119,23 +125,44 @@ function DashboardPage() {
       user?.role === 'FACULTY_ADVISOR'
         ? api.get('/events/pending').then((r) => r.data).catch(() => [])
         : Promise.resolve([])
+    const pAdvisorRequests =
+      user?.role === 'FACULTY_ADVISOR' || user?.role === 'SUPER_ADMIN'
+        ? api.get('/advisor-requests').then((r) => r.data).catch(() => [])
+        : Promise.resolve([])
 
-    Promise.all([pMemberships, pEvents, pRsvps, pNotifications, pClubs, pAudit, pPendingEvents])
-      .then(([memData, evtData, rsvpData, notifData, clubData, auditData, pendingEvtData]) => {
-        if (!mounted) return
-        setMemberships(Array.isArray(memData) ? memData : [])
-        setEvents(Array.isArray(evtData) ? evtData : [])
-        setRsvps(Array.isArray(rsvpData) ? rsvpData : [])
-        setNotifications(Array.isArray(notifData) ? notifData : [])
-        setClubsList(Array.isArray(clubData) ? clubData : [])
-        setAuditLogs(Array.isArray(auditData) ? auditData : [])
-        setPendingEvents(Array.isArray(pendingEvtData) ? pendingEvtData : [])
-      })
+    Promise.all([
+      pMemberships,
+      pEvents,
+      pRsvps,
+      pNotifications,
+      pClubs,
+      pAudit,
+      pPendingEvents,
+      pAdvisorRequests,
+    ]).then(([memData, evtData, rsvpData, notifData, clubData, auditData, pendingEvtData, advData]) => {
+      if (!mounted) return
+      setMemberships(Array.isArray(memData) ? memData : [])
+      setEvents(Array.isArray(evtData) ? evtData : [])
+      setRsvps(Array.isArray(rsvpData) ? rsvpData : [])
+      setNotifications(Array.isArray(notifData) ? notifData : [])
+      setClubsList(Array.isArray(clubData) ? clubData : [])
+      setAuditLogs(Array.isArray(auditData) ? auditData : [])
+      setPendingEvents(Array.isArray(pendingEvtData) ? pendingEvtData : [])
+      setAdvisorRequests(Array.isArray(advData) ? advData : [])
+    })
 
     return () => {
       mounted = false
     }
   }, [user?.role])
+
+  function handleAdvisorRequestCreated(newReq) {
+    setAdvisorRequests((prev) => [newReq, ...prev])
+  }
+
+  function handleAdvisorRequestResolved(updatedReq) {
+    setAdvisorRequests((prev) => prev.map((r) => (r.id === updatedReq.id ? updatedReq : r)))
+  }
 
   async function handleAdvisorReview(eventId, approve) {
     let reason
@@ -845,6 +872,116 @@ function DashboardPage() {
                 )}
               </section>
 
+              {/* Advisor Section: Escalations & Super Admin Requests */}
+              <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800/80 dark:bg-[#181b24]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                        Advisor Escalations & Admin Requests
+                      </h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Discuss club misconduct, propose club deletion, or consult directly with Super Admin
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvisorRequestModal(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-purple-700 shrink-0 self-start sm:self-center"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>New Request to Admin</span>
+                  </button>
+                </div>
+
+                {advisorRequests.length > 0 ? (
+                  <div className="mt-4 space-y-3">
+                    {advisorRequests.map((req) => (
+                      <div
+                        key={req.id}
+                        className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 transition-all dark:border-slate-800 dark:bg-slate-900/40"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5 dark:border-slate-800/80">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
+                              {req.requestType?.replace(/_/g, ' ')}
+                            </span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                req.priority === 'URGENT'
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400'
+                                  : req.priority === 'HIGH'
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
+                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400'
+                              }`}
+                            >
+                              {req.priority} Priority
+                            </span>
+                            {req.clubName && (
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                Club: <strong className="text-slate-900 dark:text-white">{req.clubName}</strong>
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
+                              req.status === 'RESOLVED'
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                                : req.status === 'IN_REVIEW'
+                                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
+                                  : req.status === 'DISMISSED'
+                                    ? 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                    : 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400'
+                            }`}
+                          >
+                            {req.status?.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+
+                        <div className="mt-2.5">
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                            {req.subject}
+                          </h4>
+                          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                            {req.message}
+                          </p>
+                          <span className="mt-2 block text-[10px] text-slate-400 dark:text-slate-500">
+                            Submitted on {new Date(req.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        {req.adminResponse && (
+                          <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/70 p-3 text-xs dark:border-indigo-900/50 dark:bg-indigo-950/30">
+                            <div className="flex items-center gap-1.5 font-bold text-[#6366f1] dark:text-indigo-300">
+                              <Shield className="h-3.5 w-3.5" />
+                              <span>Super Admin Response {req.resolvedByName ? `(${req.resolvedByName})` : ''}:</span>
+                            </div>
+                            <p className="mt-1 text-slate-700 dark:text-slate-200 whitespace-pre-wrap">
+                              {req.adminResponse}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                    <p>No active escalations or requests submitted to Super Admin yet.</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvisorRequestModal(true)}
+                      className="mt-2 text-xs font-semibold text-purple-600 hover:underline dark:text-purple-400"
+                    >
+                      Report club concern or request dissolution
+                    </button>
+                  </div>
+                )}
+              </section>
+
               {/* Section 3: Scheduled Campus Events */}
               <section>
                 <div className="flex items-center justify-between">
@@ -1137,6 +1274,122 @@ function DashboardPage() {
                     >
                       Create first club
                     </button>
+                  </div>
+                )}
+              </section>
+
+              {/* Section: Advisor Escalations & Disciplinary Reports */}
+              <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800/80 dark:bg-[#181b24]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                          Advisor Escalations & Disciplinary Reports
+                        </h2>
+                        {advisorRequests.filter((r) => r.status === 'PENDING').length > 0 && (
+                          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:bg-amber-950/60 dark:text-amber-400">
+                            {advisorRequests.filter((r) => r.status === 'PENDING').length} Pending Review
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Faculty Advisor misconduct reports, club dissolution recommendations, and administrative requests
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {advisorRequests.length > 0 ? (
+                  <div className="mt-4 space-y-3">
+                    {advisorRequests.map((req) => (
+                      <div
+                        key={req.id}
+                        className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 transition-all dark:border-slate-800 dark:bg-slate-900/40"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5 dark:border-slate-800/80">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
+                              {req.requestType?.replace(/_/g, ' ')}
+                            </span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                req.priority === 'URGENT'
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400'
+                                  : req.priority === 'HIGH'
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
+                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400'
+                              }`}
+                            >
+                              {req.priority}
+                            </span>
+                            <span className="text-xs text-slate-600 dark:text-slate-300">
+                              From: <strong className="text-slate-900 dark:text-white">{req.advisorName}</strong> ({req.advisorEmail})
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                req.status === 'RESOLVED'
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                                  : req.status === 'IN_REVIEW'
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
+                                    : req.status === 'DISMISSED'
+                                      ? 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                      : 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400'
+                              }`}
+                            >
+                              {req.status?.replace(/_/g, ' ')}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedAdvisorRequest(req)}
+                              className="rounded-lg bg-[#6366f1] px-3 py-1 text-xs font-semibold text-white shadow-2xs hover:bg-[#4f46e5]"
+                            >
+                              Review & Respond
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                              {req.subject}
+                            </h4>
+                            {req.clubName && (
+                              <span className="rounded-md bg-slate-200/80 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                Target Club: {req.clubName}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                            {req.message}
+                          </p>
+                          <span className="mt-2 block text-[10px] text-slate-400 dark:text-slate-500">
+                            Received {new Date(req.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        {req.adminResponse && (
+                          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs dark:border-slate-800 dark:bg-slate-800/60">
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              Resolution Response ({req.resolvedByName || 'Admin'}):
+                            </span>
+                            <p className="mt-1 text-slate-700 dark:text-slate-200 whitespace-pre-wrap">
+                              {req.adminResponse}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                    No advisor requests or club disciplinary escalations received yet.
                   </div>
                 )}
               </section>
@@ -1434,6 +1687,17 @@ function DashboardPage() {
                   Advisor Quick Actions
                 </h3>
                 <div className="mt-3 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvisorRequestModal(true)}
+                    className="w-full flex items-center justify-between rounded-lg border border-purple-200 bg-purple-50/60 p-2.5 text-xs font-semibold text-purple-700 transition-all hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300 dark:hover:bg-purple-900/50"
+                  >
+                    <span className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      Send Request to Super Admin
+                    </span>
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
                   <Link
                     to="/advisor/pending-events"
                     className="flex items-center justify-between rounded-lg border border-purple-100 bg-purple-50/40 p-2.5 text-xs font-medium text-slate-800 transition-all hover:bg-purple-50 dark:border-purple-900/40 dark:bg-purple-950/20 dark:text-slate-200 dark:hover:bg-purple-950/40"
@@ -1695,6 +1959,23 @@ function DashboardPage() {
             setEditingClub(null)
             setShowCreateClubModal(false)
           }}
+        />
+      )}
+      {showAdvisorRequestModal && (
+        <AdvisorRequestModal
+          isOpen={showAdvisorRequestModal}
+          onClose={() => setShowAdvisorRequestModal(false)}
+          clubs={clubsList}
+          onCreated={handleAdvisorRequestCreated}
+        />
+      )}
+      {selectedAdvisorRequest && (
+        <ResolveAdvisorRequestModal
+          isOpen={Boolean(selectedAdvisorRequest)}
+          onClose={() => setSelectedAdvisorRequest(null)}
+          request={selectedAdvisorRequest}
+          onResolved={handleAdvisorRequestResolved}
+          onDeleteClub={handleDeleteClub}
         />
       )}
     </div>
