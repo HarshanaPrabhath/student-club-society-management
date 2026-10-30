@@ -17,6 +17,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import { useToast } from '../../components/ToastProvider'
 import CreateEventModal from './CreateEventModal'
+import EventCard from './EventCard'
 import { fetchEvents } from './eventsSlice'
 
 const ITEMS_PER_PAGE = 6
@@ -354,119 +355,15 @@ function EventsPage() {
       {status !== 'loading' && filteredEvents.length > 0 && viewMode === 'grid' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {currentEvents.map((event) => {
-            const dateObj = new Date(event.eventDate)
-            const month = dateObj.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
-            const day = dateObj.getDate()
-            const timeStr = formatEventTime(event.eventDate, event.endDate)
-            const locationStr = event.venueName
-              ? `${event.venueName}${event.venueBuilding ? `, ${event.venueBuilding}` : ''}`
-              : event.location || 'Campus venue'
             const isGoing = userRsvps.some((r) => r.eventId === event.id && r.status === 'GOING')
-            const gradient = getCategoryGradient(event.clubName)
 
             return (
-              <div
+              <EventCard
                 key={event.id}
-                onClick={() => navigate(`/events/${event.id}`)}
-                className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs transition-all hover:shadow-md hover:border-slate-300 dark:border-slate-800/80 dark:bg-[#181b24] cursor-pointer"
-              >
-                {/* Banner & Floating Date Badge */}
-                <div className="relative h-44 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
-                  {event.bannerB64 && event.bannerB64.startsWith('data:image') ? (
-                    <img
-                      src={event.bannerB64}
-                      alt={event.title}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div
-                      className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${gradient} p-4 text-white`}
-                    >
-                      <span className="text-2xl font-black uppercase tracking-wider opacity-30 select-none">
-                        {event.clubName || 'EVENT'}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Floating Date Badge */}
-                  <div className="absolute left-3.5 top-3.5 flex flex-col items-center justify-center rounded-xl bg-white/95 px-2.5 py-1 shadow-md backdrop-blur-xs dark:bg-[#12151e]/95">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{month}</span>
-                    <span className="text-base font-extrabold leading-none text-slate-900 dark:text-white">
-                      {day}
-                    </span>
-                  </div>
-
-                  {event.cancelled && (
-                    <span className="absolute right-3.5 top-3.5 rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-bold uppercase text-white shadow-xs">
-                      Cancelled
-                    </span>
-                  )}
-                </div>
-
-                {/* Card Body */}
-                <div className="flex flex-1 flex-col justify-between p-4">
-                  <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#6366f1] dark:text-[#818cf8]">
-                      {event.clubName}
-                    </span>
-                    <h3 className="mt-1 text-base font-bold text-slate-900 group-hover:text-[#6366f1] dark:text-white dark:group-hover:text-[#818cf8] transition-colors truncate">
-                      {event.title}
-                    </h3>
-
-                    <div className="mt-2.5 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{timeStr}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{locationStr}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Footer Row */}
-                  <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
-                    {/* Attendee Stack */}
-                    <div className="flex items-center -space-x-1.5">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-[#6366f1] ring-2 ring-white dark:ring-[#181b24]">
-                        A
-                      </span>
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-[10px] font-bold text-purple-600 ring-2 ring-white dark:ring-[#181b24]">
-                        B
-                      </span>
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-600 ring-2 ring-white dark:ring-[#181b24]">
-                        C
-                      </span>
-                      <span className="text-[11px] font-medium text-slate-400 pl-2">
-                        +{event.capacity || 12}
-                      </span>
-                    </div>
-
-                    {/* Action Button */}
-                    <div>
-                      {isGoing ? (
-                        <button
-                          type="button"
-                          onClick={(e) => handleRsvpToggle(e, event)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600 transition-all hover:bg-emerald-100 dark:border-emerald-800/80 dark:bg-emerald-950/40 dark:text-emerald-400"
-                        >
-                          <span>Going</span>
-                          <Check className="h-3 w-3 stroke-[2.5]" />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => handleRsvpToggle(e, event)}
-                          className="rounded-lg border border-indigo-200 px-3.5 py-1 text-xs font-semibold text-[#6366f1] transition-all hover:bg-indigo-50 dark:border-indigo-800/80 dark:text-indigo-400 dark:hover:bg-indigo-950/40"
-                        >
-                          Join
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                event={event}
+                isGoing={isGoing}
+                onRsvpToggle={handleRsvpToggle}
+              />
             )
           })}
         </div>

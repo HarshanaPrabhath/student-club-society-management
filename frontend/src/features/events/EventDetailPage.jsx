@@ -1,7 +1,7 @@
-import { Award, Ban, CalendarPlus, CheckCircle2, MapPin, QrCode, Star, X } from 'lucide-react'
+import { Award, Ban, CalendarPlus, Check, CheckCircle2, MapPin, QrCode, Star, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axios'
 import { subscribeToTopic } from '../../api/websocket'
 import Breadcrumbs from '../../components/Breadcrumbs'
@@ -21,6 +21,7 @@ function formatDate(iso) {
 
 function EventDetailPage() {
   const { eventId } = useParams()
+  const navigate = useNavigate()
   const user = useSelector((state) => state.auth.user)
   const { showToast } = useToast()
 
@@ -140,6 +141,38 @@ function EventDetailPage() {
     }
   }
 
+  async function handleDeleteEvent() {
+    if (!window.confirm(`Are you sure you want to permanently delete "${event.title}"? This cannot be undone.`)) {
+      return
+    }
+    try {
+      await api.delete(`/events/${eventId}`)
+      showToast('Event deleted successfully')
+      navigate('/events')
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Failed to delete event', 'error')
+    }
+  }
+
+  async function handleReviewEvent(approve) {
+    const promptMsg = approve
+      ? 'Approve this event for the club schedule?'
+      : 'Reject this event request?'
+    if (!window.confirm(promptMsg)) return
+    try {
+      if (approve) {
+        await api.post(`/events/${eventId}/approve`)
+      } else {
+        const reason = window.prompt('Provide rejection reason (optional):') || 'Rejected by Faculty Advisor'
+        await api.post(`/events/${eventId}/reject`, { reason })
+      }
+      showToast(approve ? 'Event approved 🎉' : 'Event rejected')
+      load()
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Something went wrong', 'error')
+    }
+  }
+
   async function handleMarkManual(userId) {
     try {
       await api.post(`/events/${eventId}/attendance/manual`, { userId, method: 'MANUAL' })
@@ -212,8 +245,11 @@ function EventDetailPage() {
     )
   }
 
-  const isOfficer = OFFICER_POSITIONS.includes(myPosition)
-  const isPresident = myPosition === 'PRESIDENT'
+  const isFacultyAdvisor = user?.role === 'FACULTY_ADVISOR'
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const isStaff = isSuperAdmin || isFacultyAdvisor
+  const isOfficer = OFFICER_POSITIONS.includes(myPosition) || isStaff
+  const isPresident = myPosition === 'PRESIDENT' || isStaff
   const alreadyAttended = attendance.some((a) => a.userId === user?.id)
   const canRsvp = !event.cancelled && event.approvalStatus === 'APPROVED'
 
@@ -251,6 +287,12 @@ function EventDetailPage() {
               Cancel event
             </Button>
           )}
+          {(isSuperAdmin || isPresident) && (
+            <Button variant="danger" size="sm" onClick={handleDeleteEvent}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete event
+            </Button>
+          )}
         </div>
       )}
       {event.cancelled && (
@@ -259,9 +301,21 @@ function EventDetailPage() {
         </p>
       )}
       {!event.cancelled && event.approvalStatus === 'PENDING' && (
-        <p className="mt-3 rounded-md bg-warning/10 px-3 py-2 text-sm text-warning">
-          Waiting for Faculty Advisor approval — registration will open after approval.
-        </p>
+        <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+          <p className="text-sm font-semibold">
+            Waiting for Faculty Advisor approval — registration will open after approval.
+          </p>
+          {isFacultyAdvisor && (
+            <div className="mt-3 flex items-center gap-2">
+              <Button size="sm" variant="success" onClick={() => handleReviewEvent(true)}>
+                <Check className="h-3.5 w-3.5" /> Approve Event
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => handleReviewEvent(false)}>
+                <X className="h-3.5 w-3.5" /> Reject Event
+              </Button>
+            </div>
+          )}
+        </div>
       )}
       {!event.cancelled && event.approvalStatus === 'REJECTED' && (
         <p className="mt-3 rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
@@ -290,24 +344,22 @@ function EventDetailPage() {
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
       <div className="mt-6 flex flex-wrap gap-2">
-        {!myRsvpStatus && canRsvp && (
+        {!myRsvpStatus && canRsvp && !isSuperAdmin && (
           <Button onClick={handleRsvp}>
             <CheckCircle2 className="h-4 w-4" />
             {Number(event.fee) > 0 ? `RSVP (pay ${event.fee})` : 'RSVP'}
           </Button>
         )}
-        {myRsvpStatus && myRsvpStatus !== 'CANCELLED' && (
+        {myRsvpStatus && myRsvpStatus !== 'CANCELLED' && !isSuperAdmin && (
           <Button variant="secondary" onClick={handleCancelRsvp}>
             <X className="h-4 w-4" />
             {myRsvpStatus === 'WAITLISTED' ? 'Leave waitlist' : 'Cancel RSVP'}
           </Button>
         )}
-        {myRsvpStatus && myRsvpStatus !== 'CANCELLED' && (
-          <Button variant="secondary" onClick={handleAddToCalendar}>
-            <CalendarPlus className="h-4 w-4" />
-            Add to calendar
-          </Button>
-        )}
+        <Button variant="secondary" onClick={handleAddToCalendar}>
+          <CalendarPlus className="h-4 w-4" />
+          Add to calendar
+        </Button>
       </div>
 
       {myRsvpStatus && (

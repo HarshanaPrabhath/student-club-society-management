@@ -10,14 +10,16 @@ import LoginPage from './features/auth/LoginPage'
 import RegisterPage from './features/auth/RegisterPage'
 import ResetPasswordPage from './features/auth/ResetPasswordPage'
 import VerifyEmailPage from './features/auth/VerifyEmailPage'
+import BudgetFinancePage from './features/budget/BudgetFinancePage'
+import CalendarPage from './features/calendar/CalendarPage'
+import CertificatesPage from './features/certificates/CertificatesPage'
 import VerifyCertificatePage from './features/certificates/VerifyCertificatePage'
 import AllClubsOverviewPage from './features/clubs/AllClubsOverviewPage'
 import ClubDetailPage from './features/clubs/ClubDetailPage'
 import ClubsPage from './features/clubs/ClubsPage'
+import ClubSettingsPage from './features/clubs/ClubSettingsPage'
 import MemberDirectoryPage from './features/clubs/MemberDirectoryPage'
 import PendingClubsPage from './features/clubs/PendingClubsPage'
-import CalendarPage from './features/calendar/CalendarPage'
-import CertificatesPage from './features/certificates/CertificatesPage'
 import EventCheckInPage from './features/events/EventCheckInPage'
 import EventDetailPage from './features/events/EventDetailPage'
 import EventsPage from './features/events/EventsPage'
@@ -53,7 +55,12 @@ function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/clubs" element={<ClubsPage />} />
           <Route path="/clubs/:clubId" element={<ClubDetailPage />} />
+          <Route path="/members" element={<MemberDirectoryPage />} />
           <Route path="/clubs/:clubId/members" element={<MemberDirectoryPage />} />
+          <Route path="/budget" element={<BudgetFinancePage />} />
+          <Route path="/clubs/:clubId/budget" element={<BudgetFinancePage />} />
+          <Route path="/settings" element={<ClubSettingsPage />} />
+          <Route path="/clubs/:clubId/settings" element={<ClubSettingsPage />} />
           <Route path="/admin/pending-clubs" element={<PendingClubsPage />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/events/:eventId" element={<EventDetailPage />} />

@@ -18,7 +18,11 @@ function toDatetimeLocal(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function CreateEventModal({ clubId, event, onClose, onCreated }) {
+function CreateEventModal({ clubId, event, onClose, onCreated, clubs = [] }) {
+  const user = useSelector((state) => state.auth?.user)
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const [availableClubs, setAvailableClubs] = useState(clubs)
+  const [selectedClubId, setSelectedClubId] = useState(clubId || event?.clubId || '')
   const dispatch = useDispatch()
   const { showToast } = useToast()
   const { items: venues } = useSelector((state) => state.venues)
@@ -40,6 +44,21 @@ function CreateEventModal({ clubId, event, onClose, onCreated }) {
 
   useEffect(() => {
     dispatch(fetchVenues())
+  }, [dispatch])
+
+  useEffect(() => {
+    if (isSuperAdmin && !isEdit && availableClubs.length === 0) {
+      api
+        .get('/clubs')
+        .then((res) => {
+          const list = Array.isArray(res.data) ? res.data : []
+          setAvailableClubs(list)
+          if (!selectedClubId && list.length > 0) {
+            setSelectedClubId(list[0].id)
+          }
+        })
+        .catch(() => {})
+    }
   }, [dispatch])
 
   async function handleCheckAvailability() {
@@ -86,6 +105,11 @@ function CreateEventModal({ clubId, event, onClose, onCreated }) {
       setError('An end time is required when booking a venue')
       return
     }
+    const targetClubId = selectedClubId || clubId
+    if (!isEdit && !targetClubId) {
+      setError('Please select a club for this event')
+      return
+    }
     setSubmitting(true)
     const payload = {
       title,
@@ -101,7 +125,7 @@ function CreateEventModal({ clubId, event, onClose, onCreated }) {
     }
     const result = isEdit
       ? await dispatch(updateEvent({ eventId: event.id, payload }))
-      : await dispatch(createEvent({ clubId, payload }))
+      : await dispatch(createEvent({ clubId: targetClubId, payload }))
     setSubmitting(false)
     const action = isEdit ? updateEvent : createEvent
     if (action.fulfilled.match(result)) {
@@ -122,6 +146,27 @@ function CreateEventModal({ clubId, event, onClose, onCreated }) {
   return (
     <Modal title={isEdit ? 'Edit event' : 'Create an event'} onClose={onClose}>
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {isSuperAdmin && !isEdit && availableClubs.length > 0 && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-ink dark:text-ink-dark" htmlFor="event-club">
+                Club / Society
+              </label>
+              <select
+                id="event-club"
+                className={inputClass}
+                value={selectedClubId}
+                onChange={(e) => setSelectedClubId(e.target.value)}
+                required
+              >
+                <option value="" disabled>Select a Club</option>
+                {availableClubs.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.category ? `(${c.category})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium text-ink dark:text-ink-dark" htmlFor="event-title">Title</label>
             <input id="event-title" className={inputClass} value={title} onChange={(e) => setTitle(e.target.value)} />

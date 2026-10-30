@@ -1,5 +1,6 @@
 import {
   Award,
+  BarChart3,
   CalendarDays,
   ChevronDown,
   ClipboardCheck,
@@ -38,7 +39,7 @@ const ADMIN_LINKS = [
 
 const ADVISOR_LINKS = [
   { to: '/advisor/pending-events', label: 'Pending events', icon: ClipboardCheck },
-  { to: '/advisor/clubs', label: 'All clubs', icon: Shield },
+  { to: '/analytics', label: 'University stats', icon: BarChart3 },
 ]
 
 const ROLE_LABEL = {
@@ -49,20 +50,23 @@ const ROLE_LABEL = {
 
 const ROUTE_TITLES = {
   '/': 'Dashboard',
-  '/clubs': 'My Clubs',
+  '/clubs': 'Clubs',
   '/events': 'Events',
   '/calendar': 'Calendar',
   '/participation': 'Activity Log',
   '/certificates': 'Certificates',
-  '/analytics': 'Budget',
-  '/profile': 'Settings',
+  '/members': 'Members',
+  '/budget': 'Budget & Finance',
+  '/settings': 'Club Settings',
+  '/analytics': 'University Analytics',
+  '/profile': 'Profile Settings',
   '/search': 'Search',
   '/admin/users': 'Users',
   '/admin/pending-clubs': 'Pending Clubs',
   '/admin/venues': 'Venues',
   '/admin/audit-log': 'Audit Log',
   '/advisor/pending-events': 'Pending Events',
-  '/advisor/clubs': 'All Clubs',
+  '/advisor/clubs': 'Clubs',
 }
 
 function SidebarLink({ to, label, icon: Icon }) {
@@ -153,76 +157,82 @@ function AppLayout() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  const isFacultyAdvisor = user?.role === 'FACULTY_ADVISOR'
   const managedClub = memberships.find(
     (m) => m.status === 'APPROVED' && OFFICER_POSITIONS.includes(m.position),
   )
   const isClubOfficerOrPresident = Boolean(managedClub)
-  const canAccessMembers =
-    user?.role === 'SUPER_ADMIN' || user?.role === 'FACULTY_ADVISOR' || isClubOfficerOrPresident
+
+  const managedPresidentClub = memberships.find(
+    (m) => m.status === 'APPROVED' && m.position === 'PRESIDENT',
+  )
+  const isPresident = Boolean(managedPresidentClub)
 
   const managedLedgerClub = memberships.find(
     (m) => m.status === 'APPROVED' && ['PRESIDENT', 'TREASURER'].includes(m.position),
   )
   const canAccessBudget =
-    user?.role === 'SUPER_ADMIN' || user?.role === 'FACULTY_ADVISOR' || Boolean(managedLedgerClub)
+    !isFacultyAdvisor && (user?.role === 'SUPER_ADMIN' || Boolean(managedLedgerClub))
 
   const isStudent = user?.role === 'STUDENT'
 
-  const mainNavLinks = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/clubs', label: 'My Clubs', icon: Shield },
-    { to: '/events', label: 'Events', icon: CalendarDays },
-    ...(isStudent
-      ? [
-          { to: '/certificates', label: 'Certificates', icon: Award },
-          { to: '/participation', label: 'Activity Log', icon: ClipboardCheck },
-        ]
-      : []),
-    ...(canAccessMembers
-      ? [
-          {
-            to: managedClub ? `/clubs/${managedClub.clubId}/members` : '/clubs',
-            label: 'Members',
-            icon: Users,
-          },
-        ]
-      : []),
-    ...(canAccessBudget
-      ? [
-          {
-            to:
-              user?.role === 'SUPER_ADMIN' || user?.role === 'FACULTY_ADVISOR'
-                ? '/analytics'
-                : `/clubs/${managedLedgerClub.clubId}`,
-            label: 'Budget',
-            icon: Wallet,
-          },
-        ]
-      : []),
-    { to: '/profile', label: 'Settings', icon: Settings },
-  ]
+  const mainNavLinks = isFacultyAdvisor
+    ? [
+        { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+        { to: '/advisor/clubs', label: 'Clubs', icon: Shield },
+        { to: '/events', label: 'Events Calendar', icon: CalendarDays },
+      ]
+    : [
+        { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+        { to: '/clubs', label: 'Clubs', icon: Shield },
+        { to: '/events', label: 'Events', icon: CalendarDays },
+        ...(isStudent
+          ? [
+              { to: '/certificates', label: 'Certificates', icon: Award },
+              { to: '/participation', label: 'Activity Log', icon: ClipboardCheck },
+            ]
+          : []),
+        ...(canAccessBudget
+          ? [
+              {
+                to: '/budget',
+                label: 'Budget',
+                icon: Wallet,
+              },
+            ]
+          : []),
+        { to: '/settings', label: 'Settings', icon: Settings },
+      ]
 
-  const mobileTabs = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/clubs', label: 'My Clubs', icon: Shield },
-    { to: '/events', label: 'Events', icon: CalendarDays },
-    ...(isStudent
-      ? [
-          { to: '/certificates', label: 'Certificates', icon: Award },
-          { to: '/participation', label: 'Activity Log', icon: ClipboardCheck },
-        ]
-      : []),
-    ...(canAccessMembers
-      ? [
-          {
-            to: managedClub ? `/clubs/${managedClub.clubId}/members` : '/clubs',
-            label: 'Members',
-            icon: Users,
-          },
-        ]
-      : []),
-    { to: '/profile', label: 'Settings', icon: Settings },
-  ]
+  const mobileTabs = isFacultyAdvisor
+    ? [
+        { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+        { to: '/advisor/clubs', label: 'Clubs', icon: Shield },
+        { to: '/advisor/pending-events', label: 'Approvals', icon: ClipboardCheck },
+        { to: '/events', label: 'Events', icon: CalendarDays },
+        { to: '/analytics', label: 'Stats', icon: BarChart3 },
+      ]
+    : [
+        { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+        { to: '/clubs', label: 'Clubs', icon: Shield },
+        { to: '/events', label: 'Events', icon: CalendarDays },
+        ...(isStudent
+          ? [
+              { to: '/certificates', label: 'Certificates', icon: Award },
+              { to: '/participation', label: 'Activity Log', icon: ClipboardCheck },
+            ]
+          : []),
+        ...(canAccessBudget
+          ? [
+              {
+                to: '/budget',
+                label: 'Budget',
+                icon: Wallet,
+              },
+            ]
+          : []),
+        { to: '/settings', label: 'Settings', icon: Settings },
+      ]
 
   async function handleResendVerification() {
     setResending(true)
@@ -242,8 +252,21 @@ function AppLayout() {
   }
 
   const roleLinks =
-    user?.role === 'SUPER_ADMIN' ? ADMIN_LINKS : user?.role === 'FACULTY_ADVISOR' ? ADVISOR_LINKS : null
-  const roleTitle = user?.role === 'SUPER_ADMIN' ? 'Admin Tools' : 'Advisor Tools'
+    user?.role === 'SUPER_ADMIN'
+      ? ADMIN_LINKS
+      : user?.role === 'FACULTY_ADVISOR'
+      ? ADVISOR_LINKS
+      : isPresident
+      ? [{ to: '/admin/users', label: 'User Directory', icon: UserCog }]
+      : null
+  const roleTitle =
+    user?.role === 'SUPER_ADMIN'
+      ? 'Admin Tools'
+      : user?.role === 'FACULTY_ADVISOR'
+      ? 'Advisor Tools'
+      : isPresident
+      ? 'President Tools'
+      : null
 
   let currentTitle = ROUTE_TITLES[location.pathname]
   if (!currentTitle) {

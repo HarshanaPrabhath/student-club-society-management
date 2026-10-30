@@ -38,6 +38,18 @@ export const updateEvent = createAsyncThunk(
   },
 )
 
+export const deleteEvent = createAsyncThunk(
+  'events/deleteEvent',
+  async (eventId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/events/${eventId}`)
+      return eventId
+    } catch (error) {
+      return rejectWithValue(extractErrorMessage(error))
+    }
+  },
+)
+
 const eventsSlice = createSlice({
   name: 'events',
   initialState: {
@@ -66,6 +78,15 @@ const eventsSlice = createSlice({
       })
       .addCase(createEvent.rejected, (state, action) => {
         state.error = action.payload
+      })
+      .addCase(updateEvent.fulfilled, (state, action) => {
+        const index = state.items.findIndex((e) => e.id === action.payload.id)
+        if (index !== -1) {
+          state.items[index] = action.payload
+        }
+      })
+      .addCase(deleteEvent.fulfilled, (state, action) => {
+        state.items = state.items.filter((e) => e.id !== action.payload)
       })
   },
 })
