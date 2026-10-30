@@ -3,7 +3,6 @@ package com.club.backend.entity;
 import java.time.Instant;
 import java.util.UUID;
 
-import org.hibernate.Length;
 import org.hibernate.annotations.UuidGenerator;
 
 import jakarta.persistence.Column;
@@ -13,7 +12,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -55,8 +53,7 @@ public class AdvisorRequest {
     @Column(nullable = false, length = 200)
     private String subject;
 
-    @Lob
-    @Column(nullable = false, length = Length.LONG32)
+    @Column(columnDefinition = "text", nullable = false)
     private String message;
 
     @Enumerated(EnumType.STRING)
@@ -64,8 +61,7 @@ public class AdvisorRequest {
     @Builder.Default
     private AdvisorRequestStatus status = AdvisorRequestStatus.PENDING;
 
-    @Lob
-    @Column(name = "admin_response", length = Length.LONG32)
+    @Column(name = "admin_response", columnDefinition = "text")
     private String adminResponse;
 
     @ManyToOne(fetch = FetchType.LAZY)
